@@ -52,6 +52,8 @@ export interface ImageUploadPayload {
   fileName: string;
   /** Base64 encoded image content */
   base64Content: string;
+  /** Optional folder inside /public/uploads */
+  folder?: string;
   /** Admin password */
   password: string;
 }

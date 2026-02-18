@@ -6,7 +6,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload, RefreshCw, X } from "lucide-react";
 import type { DataItem, DynamicField } from "@/types/cms";
 import { stringifyValue } from "@/lib/cms-utils";
 import {
@@ -24,8 +24,14 @@ interface ItemEditorComponentProps {
   password: string;
   /** Callback when field changes */
   onFieldChange: (fieldPath: (string | number)[], value: unknown) => void;
-  /** Callback to upload image (kept for API compatibility) */
-  onImageUpload: (file: File) => void;
+  /** Callback to upload image at given field path */
+  onImageUpload: (
+    fieldPath: (string | number)[],
+    file: File,
+    currentValue?: string
+  ) => void;
+  /** Callback to remove image at given field path */
+  onImageRemove: (fieldPath: (string | number)[], currentValue?: string) => void;
   /** Callback to delete item */
   onDelete: () => void;
   /** If true, id is auto-generated from content fields */
@@ -86,6 +92,86 @@ function shouldUseTextarea(fieldName: string, value: unknown): boolean {
   );
 }
 
+const IMAGE_FIELD_KEYWORDS = [
+  "image",
+  "photo",
+  "thumbnail",
+  "banner",
+  "logo",
+  "favicon",
+  "ogimage",
+];
+const IMAGE_PARENT_KEYWORDS = ["images", "gallery", "photos", "banners"];
+
+function isImagePath(value: string): boolean {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return false;
+
+  if (
+    /^https?:\/\/.+\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(trimmedValue) ||
+    /^\/.+\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(trimmedValue)
+  ) {
+    return true;
+  }
+
+  return trimmedValue.startsWith("/uploads/");
+}
+
+function pathLooksLikeImage(fieldPath: (string | number)[]): boolean {
+  const stringSegments = fieldPath.filter(
+    (segment): segment is string => typeof segment === "string"
+  );
+  if (stringSegments.length === 0) return false;
+
+  const leafSegment = stringSegments[stringSegments.length - 1]
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const parentSegment = stringSegments.length > 1
+    ? stringSegments[stringSegments.length - 2]
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")
+    : "";
+
+  if (
+    IMAGE_FIELD_KEYWORDS.some((keyword) => leafSegment.includes(keyword))
+  ) {
+    return true;
+  }
+
+  return IMAGE_PARENT_KEYWORDS.some((keyword) =>
+    parentSegment.includes(keyword)
+  );
+}
+
+function isImageLikeField(
+  fieldName: string,
+  value: unknown,
+  fieldPath: (string | number)[]
+): boolean {
+  if (typeof value === "string" && isImagePath(value)) {
+    return true;
+  }
+
+  const normalizedFieldName = fieldName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (
+    IMAGE_FIELD_KEYWORDS.some((keyword) =>
+      normalizedFieldName.includes(keyword)
+    )
+  ) {
+    return true;
+  }
+
+  return pathLooksLikeImage(fieldPath);
+}
+
+function createUploadInputId(fieldPath: (string | number)[]): string {
+  return `upload-${fieldPath
+    .map((segment) => String(segment))
+    .join("-")
+    .replace(/[^a-zA-Z0-9-]/g, "-")
+    .toLowerCase()}`;
+}
+
 /**
  * Item Editor Component
  */
@@ -93,6 +179,8 @@ export function ItemEditorComponent({
   item,
   fields,
   onFieldChange,
+  onImageUpload,
+  onImageRemove,
   onDelete,
   autoIdFromContent,
   disabled,
@@ -209,6 +297,82 @@ export function ItemEditorComponent({
     value: unknown,
     fieldPath: (string | number)[]
   ) => {
+    if (isImageLikeField(fieldName, value, fieldPath)) {
+      const currentValue = stringifyValue(value).trim();
+      const hasImage = currentValue.length > 0;
+      const uploadInputId = createUploadInputId(fieldPath);
+      const canPreview =
+        currentValue.startsWith("/") || currentValue.startsWith("http://") || currentValue.startsWith("https://");
+
+      return (
+        <div className="space-y-3">
+          {hasImage ? (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+              {canPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentValue}
+                  alt={toLabel(fieldName)}
+                  className="h-32 w-full rounded object-cover"
+                />
+              ) : (
+                <p className="text-xs text-slate-600 break-all">{currentValue}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">No image selected.</p>
+          )}
+
+          <input
+            type="text"
+            value={stringifyValue(value)}
+            onChange={(e) => onFieldChange(fieldPath, e.target.value)}
+            disabled={disabled}
+            placeholder="/uploads/path/image.jpg"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              htmlFor={uploadInputId}
+              className={`inline-flex cursor-pointer items-center gap-1 rounded-md px-3 py-2 text-xs font-medium text-white ${
+                disabled ? "bg-slate-300" : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              {hasImage ? <RefreshCw className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+              {hasImage ? "Re-upload" : "Upload"}
+            </label>
+            <input
+              id={uploadInputId}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={disabled}
+              className="hidden"
+              onChange={(e) => {
+                const selectedFile = e.target.files?.[0];
+                if (selectedFile) {
+                  onImageUpload(fieldPath, selectedFile, currentValue || undefined);
+                }
+                e.target.value = "";
+              }}
+            />
+
+            {hasImage && (
+              <button
+                type="button"
+                onClick={() => onImageRemove(fieldPath, currentValue)}
+                disabled={disabled}
+                className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
+              >
+                <X className="h-3.5 w-3.5" />
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     if (typeof value === "boolean") {
       return (
         <input

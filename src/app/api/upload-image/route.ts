@@ -4,6 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { mkdir, writeFile } from "fs/promises";
+import { dirname, join } from "path";
 import { createGitHubAPI } from "@/lib/github-api";
 import type { APIResponse, ImageUploadPayload } from "@/types/cms";
 
@@ -30,6 +32,18 @@ function validateFileName(fileName: string): boolean {
   // Only allow alphanumeric, dash, underscore, and dot
   const validNamePattern = /^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp)$/i;
   return validNamePattern.test(fileName);
+}
+
+/**
+ * Validate upload folder
+ * @param folder - Folder path to validate
+ * @returns True if folder is valid
+ */
+function validateFolder(folder: string): boolean {
+  if (!folder) return true;
+  if (folder.includes("..")) return false;
+  if (folder.startsWith("/") || folder.endsWith("/")) return false;
+  return /^[a-zA-Z0-9/_-]+$/.test(folder);
 }
 
 /**
@@ -83,23 +97,61 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(response, { status: 400 });
     }
 
-    // Build file path
-    const filePath = `public/uploads/${payload.fileName}`;
+    if (payload.folder && !validateFolder(payload.folder)) {
+      const response: APIResponse = {
+        success: false,
+        error: "Invalid folder path",
+        status: 400,
+      };
+      return NextResponse.json(response, { status: 400 });
+    }
+
+    const folderSegment = payload.folder ? `/${payload.folder}` : "";
+    const filePath = `public/uploads${folderSegment}/${payload.fileName}`;
+    const publicPath = `/uploads${folderSegment}/${payload.fileName}`;
+
+    if (process.env.NODE_ENV === "development") {
+      const fullPath = join(process.cwd(), filePath);
+      await mkdir(dirname(fullPath), { recursive: true });
+      await writeFile(fullPath, Buffer.from(payload.base64Content, "base64"));
+
+      const successResponse: APIResponse = {
+        success: true,
+        data: {
+          path: publicPath,
+          sha: "local-dev",
+          fileName: payload.fileName,
+        },
+        message: "Image uploaded successfully (local development)",
+      };
+
+      return NextResponse.json(successResponse);
+    }
 
     // Initialize GitHub API
     const github = createGitHubAPI();
+    let sha: string | undefined;
+
+    try {
+      const existingFile = await github.getFile(filePath);
+      sha = existingFile.sha;
+    } catch {
+      sha = undefined;
+    }
 
     // Upload image
     const uploadedFile = await github.putFile(
       filePath,
       payload.base64Content,
-      `Upload image: ${payload.fileName}`
+      `Upload image: ${payload.fileName}`,
+      sha,
+      { contentEncoding: "base64" }
     );
 
     const successResponse: APIResponse = {
       success: true,
       data: {
-        path: `/${filePath.replace(/^public/, "")}`,
+        path: publicPath,
         sha: uploadedFile.sha,
         fileName: payload.fileName,
       },

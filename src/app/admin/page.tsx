@@ -181,6 +181,7 @@ export default function AdminDashboard() {
     addItem,
     deleteItem,
     uploadImage,
+    removeImage,
   } = useAdminCMS();
 
   const selectedMetadata = selectedFile
@@ -314,8 +315,18 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleImageUpload = (localItemId: string) => (file: File) => {
-    uploadImage(localItemId, file, password);
+  const handleImageUpload =
+    (localItemId: string, fieldPath: (string | number)[], currentValue?: string) =>
+    (file: File) => {
+      uploadImage(localItemId, fieldPath, file, password, currentValue);
+    };
+
+  const handleImageRemove = (
+    localItemId: string,
+    fieldPath: (string | number)[],
+    currentValue?: string
+  ) => {
+    removeImage(localItemId, fieldPath, password, currentValue);
   };
 
   const handleAddLanguage = () => {
@@ -900,7 +911,12 @@ export default function AdminDashboard() {
                           onFieldChange={(f, v) =>
                             updateItemField(siteConfigLocalId, f, v)
                           }
-                          onImageUpload={handleImageUpload(siteConfigLocalId)}
+                          onImageUpload={(fieldPath, file, currentValue) =>
+                            handleImageUpload(siteConfigLocalId, fieldPath, currentValue)(file)
+                          }
+                          onImageRemove={(fieldPath, currentValue) =>
+                            handleImageRemove(siteConfigLocalId, fieldPath, currentValue)
+                          }
                           onDelete={() => {}}
                         />
                       </div>
@@ -925,7 +941,12 @@ export default function AdminDashboard() {
                             onFieldChange={(f, v) =>
                               updateItemField(localItemId, f, v)
                             }
-                            onImageUpload={handleImageUpload(localItemId)}
+                            onImageUpload={(fieldPath, file, currentValue) =>
+                              handleImageUpload(localItemId, fieldPath, currentValue)(file)
+                            }
+                            onImageRemove={(fieldPath, currentValue) =>
+                              handleImageRemove(localItemId, fieldPath, currentValue)
+                            }
                             onDelete={() => handleDeleteItem(localItemId)}
                           />
                         </div>

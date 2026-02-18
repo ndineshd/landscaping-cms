@@ -116,12 +116,15 @@ export class GitHubAPI {
     filePath: string,
     content: string,
     message: string,
-    sha?: string
+    sha?: string,
+    options?: { contentEncoding?: "utf-8" | "base64" }
   ): Promise<GitHubFileResponse> {
     const url = this.buildUrl(filePath);
 
-    // Encode content to base64
-    const base64Content = Buffer.from(content).toString("base64");
+    const base64Content =
+      options?.contentEncoding === "base64"
+        ? content
+        : Buffer.from(content, "utf-8").toString("base64");
 
     const body = {
       message,

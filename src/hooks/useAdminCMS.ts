@@ -21,6 +21,11 @@ import {
   generateId,
 } from "@/lib/cms-utils";
 import {
+  compressImage,
+  fileToBase64,
+  generateUniqueFileName,
+} from "@/lib/image-compression";
+import {
   applyLanguageConfigToAdminConfig,
   extractLanguageConfig,
   type LanguageOption,
@@ -41,6 +46,12 @@ const LANGUAGE_DEPENDENT_FILES = [
   CMS_FILES.SERVICES,
   CMS_FILES.TRANSLATIONS,
 ] as const;
+const IMAGE_UPLOAD_FOLDER_BY_FILE: Record<string, string> = {
+  [CMS_FILES.ADMIN_CONFIG]: "site",
+  [CMS_FILES.PROJECTS]: "projects",
+  [CMS_FILES.SERVICES]: "services",
+  [CMS_FILES.TRANSLATIONS]: "translations",
+};
 
 interface SaveAllResult {
   successCount: number;
@@ -143,6 +154,47 @@ function shouldPersistArrayItem(item: DataItem): boolean {
   });
 }
 
+function isManagedUploadPath(value: unknown): value is string {
+  return typeof value === "string" && value.trim().startsWith("/uploads/");
+}
+
+function extractManagedUploadPathsFromString(value: string): string[] {
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.startsWith("/uploads/"));
+}
+
+function collectManagedUploadPaths(value: unknown): string[] {
+  const paths = new Set<string>();
+
+  const walk = (node: unknown) => {
+    if (typeof node === "string") {
+      extractManagedUploadPathsFromString(node).forEach((path) => paths.add(path));
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach((entry) => walk(entry));
+      return;
+    }
+    if (isRecord(node)) {
+      Object.values(node).forEach((entry) => walk(entry));
+    }
+  };
+
+  walk(value);
+  return Array.from(paths);
+}
+
+function resolveImageUploadFolder(filePath: string, fieldPath: (string | number)[]): string {
+  const baseFolder = IMAGE_UPLOAD_FOLDER_BY_FILE[filePath] || "content";
+  const rootSegment = fieldPath.find(
+    (segment): segment is string => typeof segment === "string"
+  );
+  const rootFolder = rootSegment ? toSlug(rootSegment) : "";
+  return rootFolder ? `${baseFolder}/${rootFolder}` : baseFolder;
+}
+
 function ensureLocalizedAdminConfigItem(
   item: DataItem,
   languageCodes: string[],
@@ -180,7 +232,10 @@ function ensureLocalizedAdminConfigItem(
   return { item: nextItem, changed };
 }
 
-function normalizeItem(item: DataItem): { item: DataItem; idChanged: boolean } {
+function normalizeItem(
+  item: DataItem,
+  options?: { autoGenerateId?: boolean }
+): { item: DataItem; idChanged: boolean } {
   const localId =
     typeof item[LOCAL_ITEM_ID_KEY] === "string" && item[LOCAL_ITEM_ID_KEY]
       ? (item[LOCAL_ITEM_ID_KEY] as string)
@@ -192,7 +247,7 @@ function normalizeItem(item: DataItem): { item: DataItem; idChanged: boolean } {
   };
   let idChanged = false;
 
-  if (hasAutoIdSource(normalized)) {
+  if (options?.autoGenerateId !== false && hasAutoIdSource(normalized)) {
     const nextId = buildAutoId(normalized);
     if (nextId && normalized.id !== nextId) {
       normalized = { ...normalized, id: nextId };
@@ -203,10 +258,13 @@ function normalizeItem(item: DataItem): { item: DataItem; idChanged: boolean } {
   return { item: normalized, idChanged };
 }
 
-function normalizeItems(items: DataItem[]): { items: DataItem[]; idsChanged: boolean } {
+function normalizeItems(
+  items: DataItem[],
+  options?: { autoGenerateId?: boolean }
+): { items: DataItem[]; idsChanged: boolean } {
   let idsChanged = false;
   const normalizedItems = items.map((item) => {
-    const normalized = normalizeItem(item);
+    const normalized = normalizeItem(item, options);
     if (normalized.idChanged) idsChanged = true;
     return normalized.item;
   });
@@ -253,18 +311,30 @@ function ensureTranslationsForLanguages(
   );
   const normalizedDefault = normalizeLanguageCode(defaultLanguage || DEFAULT_LANGUAGE_CODE);
   const sanitizedTranslations: Record<string, Record<string, unknown>> = {};
+  const preservedMetadata: Record<string, unknown> = {};
   let changed = false;
 
-  Object.entries(rawTranslations).forEach(([code, value]) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+  Object.entries(rawTranslations).forEach(([key, value]) => {
+    const normalizedCode = normalizeLanguageCode(key);
+    const isConfiguredLanguage = normalizedLanguageCodes.includes(normalizedCode);
 
-    const normalizedCode = normalizeLanguageCode(code);
-    if (!normalizedLanguageCodes.includes(normalizedCode)) {
+    if (!isConfiguredLanguage) {
+      const looksLikeLanguageCode = /^[a-z]{2,8}$/.test(normalizedCode);
+      if (looksLikeLanguageCode) {
+        changed = true;
+        return;
+      }
+
+      preservedMetadata[key] = value;
+      return;
+    }
+
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
       changed = true;
       return;
     }
 
-    if (code !== normalizedCode) {
+    if (key !== normalizedCode) {
       changed = true;
     }
 
@@ -305,11 +375,16 @@ function ensureTranslationsForLanguages(
     }
   });
 
-  if (Object.keys(rawTranslations).length !== Object.keys(normalizedTranslations).length) {
+  const mergedResult: Record<string, unknown> = {
+    ...preservedMetadata,
+    ...normalizedTranslations,
+  };
+
+  if (JSON.stringify(rawTranslations) !== JSON.stringify(mergedResult)) {
     changed = true;
   }
 
-  return { translations: normalizedTranslations, changed };
+  return { translations: mergedResult, changed };
 }
 
 function setValueAtPath(
@@ -595,7 +670,9 @@ export function useAdminCMS() {
           localizedContentUpdated = localizedContent.changed;
         }
 
-        const normalized = normalizeItems(loadedItems);
+        const normalized = normalizeItems(loadedItems, {
+          autoGenerateId: filePath !== CMS_FILES.TRANSLATIONS,
+        });
         const detectedFields = detectFields(normalized.items);
 
         setItems(normalized.items);
@@ -770,7 +847,8 @@ export function useAdminCMS() {
           const shouldRecomputeId =
             fieldPath.length === 1 &&
             typeof topField === "string" &&
-            (topField === "title" || topField === "name" || topField === "category");
+            (topField === "title" || topField === "name" || topField === "category") &&
+            selectedFile !== CMS_FILES.TRANSLATIONS;
 
           if (shouldRecomputeId && hasAutoIdSource(updatedItem)) {
             const nextId = buildAutoId(updatedItem);
@@ -856,26 +934,26 @@ export function useAdminCMS() {
       const item = items.find((i: DataItem) => i[LOCAL_ITEM_ID_KEY] === localItemId);
       if (!item) return;
 
-      // Delete associated image if exists.
-      const imageField = fields.find((f: DynamicField) => f.type === "image");
-      if (imageField) {
-        const imagePath = item[imageField.name] as string;
-        if (imagePath && imagePath.startsWith("/uploads/")) {
-          try {
-            const payload: ImageDeletePayload = {
-              filePath: `public${imagePath}`,
-              password,
-            };
+      const imagePaths = collectManagedUploadPaths(item);
+      if (imagePaths.length > 0) {
+        await Promise.all(
+          imagePaths.map(async (imagePath) => {
+            try {
+              const payload: ImageDeletePayload = {
+                filePath: `public${imagePath}`,
+                password,
+              };
 
-            await fetch("/api/delete-image", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-          } catch (error) {
-            console.error("Failed to delete image:", error);
-          }
-        }
+              await fetch("/api/delete-image", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+              });
+            } catch (error) {
+              console.error("Failed to delete image:", error);
+            }
+          })
+        );
       }
 
       setItems((prevItems: DataItem[]) => {
@@ -889,17 +967,29 @@ export function useAdminCMS() {
 
       toast.success("Item deleted");
     },
-    [fields, items, markFilesDirty, selectedFile]
+    [items, markFilesDirty, selectedFile]
   );
 
   /**
    * Upload image for item
    * @param localItemId - Stable local item key
+   * @param fieldPath - Field path to store uploaded image URL
    * @param file - Image file
    * @param password - Admin password
    */
   const uploadImage = useCallback(
-    async (localItemId: string, file: File, password: string) => {
+    async (
+      localItemId: string,
+      fieldPath: (string | number)[],
+      file: File,
+      password: string,
+      previousImagePath?: string
+    ) => {
+      if (!selectedFile) {
+        toast.error("Select a file before uploading an image");
+        return;
+      }
+
       if (!file) {
         toast.error("Please select an image");
         return;
@@ -907,41 +997,50 @@ export function useAdminCMS() {
 
       setIsLoading(true);
       try {
-        // TODO: Compress image and convert to base64.
-        const reader = new FileReader();
+        const compressed = await compressImage(file);
+        const base64Content = await fileToBase64(compressed.file);
+        const payload: ImageUploadPayload = {
+          fileName: generateUniqueFileName(file.name),
+          base64Content,
+          folder: resolveImageUploadFolder(selectedFile, fieldPath),
+          password,
+        };
 
-        reader.onload = async () => {
-          const base64Content = reader.result?.toString().split(",")[1] || "";
+        const response = await fetch("/api/upload-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-          const payload: ImageUploadPayload = {
-            fileName: `img-${Date.now()}.${file.type.split("/")[1]}`,
-            base64Content,
+        const data = (await response.json()) as APIResponse;
+
+        if (!data.success) {
+          toast.error(data.error || "Failed to upload image");
+          return;
+        }
+
+        const imagePath = (data.data as Record<string, unknown>).path as string;
+        updateItemField(localItemId, fieldPath, imagePath);
+
+        if (
+          isManagedUploadPath(previousImagePath) &&
+          previousImagePath !== imagePath
+        ) {
+          const deletePayload: ImageDeletePayload = {
+            filePath: `public${previousImagePath}`,
             password,
           };
 
-          const response = await fetch("/api/upload-image", {
-            method: "POST",
+          fetch("/api/delete-image", {
+            method: "DELETE",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(deletePayload),
+          }).catch((error) => {
+            console.error("Failed to remove previous image:", error);
           });
+        }
 
-          const data = (await response.json()) as APIResponse;
-
-          if (!data.success) {
-            toast.error(data.error || "Failed to upload image");
-            return;
-          }
-
-          const imagePath = (data.data as Record<string, unknown>).path as string;
-          const imageField = fields.find((f: DynamicField) => f.type === "image");
-
-          if (imageField) {
-            updateItemField(localItemId, [imageField.name], imagePath);
-            toast.success("Image uploaded successfully");
-          }
-        };
-
-        reader.readAsDataURL(file);
+        toast.success("Image uploaded successfully");
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to upload image";
         toast.error(errorMessage);
@@ -949,7 +1048,37 @@ export function useAdminCMS() {
         setIsLoading(false);
       }
     },
-    [fields, updateItemField]
+    [selectedFile, updateItemField]
+  );
+
+  const removeImage = useCallback(
+    async (
+      localItemId: string,
+      fieldPath: (string | number)[],
+      password: string,
+      currentImagePath?: string
+    ) => {
+      if (isManagedUploadPath(currentImagePath)) {
+        try {
+          const payload: ImageDeletePayload = {
+            filePath: `public${currentImagePath}`,
+            password,
+          };
+
+          await fetch("/api/delete-image", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } catch (error) {
+          console.error("Failed to delete image:", error);
+        }
+      }
+
+      updateItemField(localItemId, fieldPath, "");
+      toast.success("Image removed");
+    },
+    [updateItemField]
   );
 
   /**
@@ -1123,7 +1252,9 @@ export function useAdminCMS() {
           const loadedItems = (isArrayContent
             ? (rawContent as DataItem[])
             : [rawContent as DataItem]) as DataItem[];
-          const normalizedLoadedItems = normalizeItems(loadedItems).items;
+          const normalizedLoadedItems = normalizeItems(loadedItems, {
+            autoGenerateId: filePath !== CMS_FILES.TRANSLATIONS,
+          }).items;
           nextItemsByFile[filePath] = normalizedLoadedItems;
           nextFieldsByFile[filePath] = detectFields(normalizedLoadedItems);
           nextArrayState[filePath] = isArrayContent;
@@ -1241,6 +1372,7 @@ export function useAdminCMS() {
     addItem,
     deleteItem,
     uploadImage,
+    removeImage,
     addField,
     removeField,
     setItems,
