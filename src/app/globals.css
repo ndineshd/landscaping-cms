@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base resets and defaults */
+:root {
+  --bg: #f8fafc;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased font-sans;
+}
+
+/* Utility tweaks for the admin UI */
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}

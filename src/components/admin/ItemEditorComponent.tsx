@@ -77,7 +77,7 @@ export function ItemEditorComponent({
               {isImageField ? (
                 // Image Field
                 <div className="space-y-2">
-                  {value && typeof value === "string" && (
+                  {typeof value === "string" && value && (
                     <div className="relative group">
                       <img
                         src={value}
@@ -97,7 +97,7 @@ export function ItemEditorComponent({
                     </div>
                   )}
 
-                  {!value || typeof value !== "string" ? (
+                  {typeof value !== "string" || (typeof value === "string" && !value) ? (
                     <button
                       onClick={() => {
                         setSelectedImageField(field.name);

@@ -24,7 +24,7 @@
       "@/*": ["./*"],
       "@/components/*": ["./src/components/*"],
       "@/components/ui/*": ["./components/ui/*"],
-      "@/lib/*": ["./src/lib/*"],
+      "@/lib/*": ["./src/lib/*","./lib/*"],
       "@/app/*": ["./src/app/*"],
       "@/hooks/*": ["./src/hooks/*"],
       "@/types/*": ["./src/types/*"],
