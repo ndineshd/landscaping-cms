@@ -1,0 +1,101 @@
+{
+  "site": {
+    "name": "GrowWell Landscapes",
+    "companyName": "GrowWell Landscapes Pvt Ltd",
+    "tagline": "Professional landscaping services",
+    "description": "Transforming outdoor spaces into living works of art. Chennai's trusted experts in terraces, gardens, and sustainable landscaping since 2010.",
+    "logo": {
+      "type": "image",
+      "imageUrl": "/images/logo.svg",
+      "text": "GW",
+      "showText": true
+    },
+    "defaultLanguage": "en",
+    "availableLanguages": ["en"]
+  },
+  "seo": {
+    "title": "GrowWell Landscapes - Professional Landscaping Services in Chennai",
+    "description": "Transform your outdoor spaces with GrowWell Landscapes. Expert terracing, lawn design, vertical gardens & maintenance services in Chennai since 2010.",
+    "keywords": "landscaping, terrace garden, lawn maintenance, vertical gardens, Chennai landscaping, garden design",
+    "favicon": "/favicon.ico",
+    "ogImage": "/images/og-image.jpg"
+  },
+  "theme": {
+    "colors": {
+      "primary": "#48a649",
+      "primaryHover": "#3d8c3e",
+      "secondary": "#6fbf73",
+      "background": "#ffffff",
+      "foreground": "#1a1a1a",
+      "muted": "#f5f5f5",
+      "mutedForeground": "#6b7280",
+      "accent": "#e8f5e9",
+      "border": "#e5e7eb"
+    },
+    "fonts": {
+      "heading": "'Montserrat', sans-serif",
+      "body": "'Inter', sans-serif"
+    },
+    "customCss": ""
+  },
+  "contact": {
+    "phone": "+91 8015355447",
+    "email": "greenformulalandscapers@gmail.com",
+    "address": "New Bowenpally, Hyderabad, Telangana, India",
+    "location": {
+      "name": "Madhura Landscapes - Top Landscape Contractor",
+      "url": "https://share.google/eWR7LYJJSDVM9XJob"
+    },
+    "whatsapp": {
+      "number": "918015355447",
+      "defaultMessage": "Hi, I'm interested in your landscaping services. Can you help me?"
+    },
+    "floatingContact": {
+      "enabled": true,
+      "showWhatsApp": true,
+      "showEmail": false
+    }
+  },
+  "socialMedia": [
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "icon": "instagram",
+      "url": "https://instagram.com/greenformula_landscapers",
+      "enabled": true
+    }
+  ],
+  "hero": {
+    "title": "Welcome to GrowWell Landscapes",
+    "subtitle": "Professional landscaping services",
+    "description": "Transforming Chennai's outdoors into living sanctuaries.",
+    "ctaText": "View Services",
+    "ctaLink": "#services",
+    "images": {
+      "desktop": "/images/hero-desktop.jpg",
+      "mobile": "/images/hero-mobile.jpg"
+    }
+  },
+  "about": {
+    "title": "Transforming Chennai's Terraces and Landscapes Since 2010",
+    "description": "We believe outdoor spaces should be as comfortable and beautiful as indoor living areas. Our skilled team of horticulturists, designers, and maintenance experts work together to create sustainable, stunning landscapes that enhance your property value and quality of life.",
+    "features": [
+      {
+        "title": "Expert Landscape Design",
+        "description": "Professional design consultation and planning"
+      },
+      {
+        "title": "Sustainable Practices",
+        "description": "Eco-friendly solutions for lasting beauty"
+      },
+      {
+        "title": "Premium Quality Plants",
+        "description": "Carefully selected plants for optimal growth"
+      },
+      {
+        "title": "Dedicated Maintenance Team",
+        "description": "Regular care to keep your garden thriving"
+      }
+    ]
+  }
+}

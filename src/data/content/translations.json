@@ -1,0 +1,42 @@
+{
+  "en": {
+    "nav": {
+      "home": "Home",
+      "services": "Services",
+      "projects": "Projects",
+      "about": "About",
+      "contact": "Contact"
+    },
+    "hero": {
+      "viewServices": "View Services"
+    },
+    "services": {
+      "title": "Our Services",
+      "subtitle": "We offer comprehensive landscaping solutions tailored to your needs, from design to maintenance.",
+      "viewDetails": "View Details",
+      "viewAll": "View All Services",
+      "getQuote": "Get a Quote"
+    },
+    "projects": {
+      "title": "Our Projects",
+      "subtitle": "Browse our portfolio of successful landscaping projects"
+    },
+    "contact": {
+      "title": "Get in Touch",
+      "subtitle": "Let's build your dream garden! Reach out to us for quick consultations, or any queries.",
+      "callUs": "Call Us",
+      "emailUs": "Email Us",
+      "chatOnWhatsApp": "Chat on WhatsApp",
+      "visitUs": "Visit Us",
+      "followUs": "Follow Us on Instagram"
+    },
+    "footer": {
+      "copyright": "© 2025 GrowWell Landscapes Pvt Ltd. All rights reserved."
+    },
+    "common": {
+      "learnMore": "Learn More",
+      "getStarted": "Get Started",
+      "contactUs": "Contact Us"
+    }
+  }
+}
