@@ -53,13 +53,10 @@ export function FieldManagerComponent({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Dynamic Fields</h3>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm text-blue-600 hover:underline"
-        >
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-medium text-gray-900">Dynamic Fields</h3>
+        <button onClick={() => setIsExpanded(!isExpanded)} className="text-sm text-blue-600 hover:underline">
           {isExpanded ? "Hide" : "Show"}
         </button>
       </div>
@@ -73,13 +70,10 @@ export function FieldManagerComponent({
               {fields.map((field) => (
                 <div
                   key={field.name}
-                  className="flex items-center gap-2 bg-gray-100 px-3 py-2 rounded-lg"
+                  className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md text-sm"
                 >
                   <span className="text-sm text-gray-700">
-                    {field.label}{" "}
-                    <span className="text-xs text-gray-500">
-                      ({field.type})
-                    </span>
+                    {field.label} <span className="text-xs text-gray-500">({field.type})</span>
                   </span>
                   <button
                     onClick={() => {

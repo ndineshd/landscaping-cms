@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Eye,
   EyeOff,
@@ -20,6 +20,7 @@ import {
   LogOut,
   ChevronRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { useAdminCMS } from "@/hooks/useAdminCMS";
 import { ItemEditorComponent } from "@/components/admin/ItemEditorComponent";
@@ -116,8 +117,28 @@ export default function AdminDashboard() {
     removeField,
   } = useAdminCMS();
 
+  // When user authenticates, auto-select and load the default site configuration
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const defaultFile = CMS_FILES.ADMIN_CONFIG;
+
+    // If already loaded, do nothing
+    if (selectedFile === defaultFile) return;
+
+    // Set selection input and load automatically
+    setSelectFileInput(defaultFile);
+    if (password) {
+      loadData(defaultFile, password);
+    }
+  }, [isAuthenticated]);
+
   const handleSelectFile = (filePath: string) => {
     setSelectFileInput(filePath);
+    // If authenticated and password provided, load immediately
+    if (isAuthenticated && password) {
+      loadData(filePath, password);
+    }
   };
 
   const handleAuthenticate = () => {
@@ -200,14 +221,14 @@ export default function AdminDashboard() {
    * DASHBOARD
    */
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 overflow-x-hidden">
       {/* SIDEBAR */}
-      <aside className="hidden md:flex w-64 bg-white border-r flex-col">
-        <div className="p-6 border-b font-bold text-lg">
+      <aside className="hidden md:flex w-64 bg-white border-r flex-col md:sticky md:top-0 md:h-screen md:flex-shrink-0">
+        <div className="p-4 border-b font-semibold text-base">
           CMS Admin
         </div>
 
-        <div className="flex-1 p-4 space-y-2">
+        <div className="flex-1 p-4 space-y-2 overflow-auto">
           {Object.values(CMS_FILES).map((filePath) => {
             const metadata = getFileMetadata(filePath);
             if (!metadata) return null;
@@ -220,13 +241,13 @@ export default function AdminDashboard() {
                 key={filePath}
                 onClick={() => handleSelectFile(filePath)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
-                  selectFileInput === filePath
+                  (selectFileInput === filePath || selectedFile === filePath)
                     ? "bg-blue-50 text-blue-600"
                     : "hover:bg-gray-100"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {metadata.label}
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{metadata.label}</span>
               </button>
             );
           })}
@@ -244,36 +265,43 @@ export default function AdminDashboard() {
       </aside>
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* HEADER */}
-        <header className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+        <header className="sticky top-0 bg-white border-b px-4 py-3 flex justify-between items-center">
           <div>
-            <h1 className="font-bold text-xl">Dashboard</h1>
-            <p className="text-sm text-gray-500">
-              Manage content
-            </p>
+            <h1 className="font-semibold text-lg">Dashboard</h1>
+            <p className="text-sm text-gray-500">Manage content</p>
           </div>
 
           {selectedFile && (
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg"
+              className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded"
             >
               {isLoading ? (
                 <Loader className="animate-spin h-4 w-4" />
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Save
+              <span className="text-sm">Save</span>
             </button>
           )}
         </header>
 
         {/* CONTENT */}
-        <main className="p-6 space-y-6">
-          {/* FILE GRID */}
+        <main className="flex-1 p-6 space-y-6 overflow-auto">
+          {/* Field manager + controls when file is loaded */}
+          {selectedFile && (
+            <FieldManagerComponent
+              fields={fields}
+              onAddField={addField}
+              onRemoveField={removeField}
+              disabled={isLoading}
+            />
+          )}
+          {/* FILE GRID (mobile only) */}
           {!selectedFile && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:hidden">
               {Object.values(CMS_FILES).map((filePath) => (
                 <FileCard
                   key={filePath}
@@ -287,11 +315,9 @@ export default function AdminDashboard() {
 
           {/* LOAD */}
           {selectFileInput && !selectedFile && (
-            <div className="bg-white p-6 rounded-xl shadow-sm flex justify-between">
+            <div className="bg-white p-6 rounded-xl shadow-sm flex justify-between md:hidden">
               <div>
-                <h3 className="font-semibold">
-                  Load file?
-                </h3>
+                <h3 className="font-semibold">Load file?</h3>
               </div>
               <button
                 onClick={handleLoad}
@@ -303,25 +329,22 @@ export default function AdminDashboard() {
           )}
 
           {/* ITEMS */}
-          {selectedFile && items.length > 0 && (
+          {selectedFile && (
             <div className="bg-white rounded-xl shadow-sm">
-              <div className="p-6 flex justify-between border-b">
-                <h2>Items ({items.length})</h2>
-                <button
+              <div className="sticky top-0 z-10 bg-white p-4 flex justify-between items-center border-b">
+                <h2 className="text-base font-medium">Items ({items.length})</h2>
+                <Button
                   onClick={addItem}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg flex gap-2"
+                  className="inline-flex items-center gap-2 rounded-[5px] text-center px-3 py-1"
                 >
                   <Plus className="h-4 w-4" />
-                  Add
-                </button>
+                  + Add item
+                </Button>
               </div>
 
-              <div className="p-6 space-y-4 max-h-[500px] overflow-y-auto">
+              <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
                 {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border p-4 rounded-lg bg-gray-50"
-                  >
+                  <div key={item.id} className="border p-3 rounded-md bg-gray-50">
                     <ItemEditorComponent
                       item={item}
                       fields={fields}
@@ -329,12 +352,8 @@ export default function AdminDashboard() {
                       onFieldChange={(f, v) =>
                         updateItemField(item.id as number, f, v)
                       }
-                      onImageUpload={handleImageUpload(
-                        item.id as number
-                      )}
-                      onDelete={() =>
-                        handleDeleteItem(item.id as number)
-                      }
+                      onImageUpload={handleImageUpload(item.id as number)}
+                      onDelete={() => handleDeleteItem(item.id as number)}
                     />
                   </div>
                 ))}
