@@ -11,7 +11,15 @@
       "showText": true
     },
     "defaultLanguage": "en",
-    "availableLanguages": ["en"]
+    "languages": [
+      {
+        "code": "en",
+        "name": "English"
+      }
+    ],
+    "availableLanguages": [
+      "en"
+    ]
   },
   "seo": {
     "title": "GrowWell Landscapes - Professional Landscaping Services in Chennai",

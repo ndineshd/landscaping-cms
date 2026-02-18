@@ -14,9 +14,39 @@ import type {
   ImageDeletePayload,
   JSONUpdatePayload,
 } from "@/types/cms";
-import { extractFieldsFromItems, detectFieldType, generateId } from "@/lib/cms-utils";
+import {
+  CMS_FILES,
+  extractFieldsFromItems,
+  detectFieldType,
+  generateId,
+} from "@/lib/cms-utils";
+import {
+  applyLanguageConfigToAdminConfig,
+  extractLanguageConfig,
+  type LanguageOption,
+  normalizeLanguageConfig,
+  normalizeLanguageCode,
+  ensureLocalizedContentItems,
+  DEFAULT_LANGUAGE_CODE,
+} from "@/lib/language-utils";
 
 const LOCAL_ITEM_ID_KEY = "__localId";
+const LANGUAGE_AWARE_FILES = new Set<string>([
+  CMS_FILES.PROJECTS,
+  CMS_FILES.SERVICES,
+]);
+const ADMIN_CONFIG_LOCALIZED_SECTIONS = ["hero", "about"] as const;
+const LANGUAGE_DEPENDENT_FILES = [
+  CMS_FILES.PROJECTS,
+  CMS_FILES.SERVICES,
+  CMS_FILES.TRANSLATIONS,
+] as const;
+
+interface SaveAllResult {
+  successCount: number;
+  failedCount: number;
+  publishedFiles: string[];
+}
 
 function createLocalItemId(): string {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -67,6 +97,89 @@ function stripLocalId(item: DataItem): DataItem {
   return cleaned;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasMeaningfulContent(value: unknown): boolean {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) && value !== 0;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.some((entry) => hasMeaningfulContent(entry));
+  }
+  if (isRecord(value)) {
+    return Object.entries(value).some(([key, entry]) => {
+      if (key === LOCAL_ITEM_ID_KEY || key === "id") return false;
+      return hasMeaningfulContent(entry);
+    });
+  }
+  return false;
+}
+
+function shouldPersistArrayItem(item: DataItem): boolean {
+  const titleValue = item.title;
+  if (typeof titleValue === "string" && titleValue.trim().length === 0) {
+    return false;
+  }
+
+  const hasTitleField = Object.prototype.hasOwnProperty.call(item, "title");
+  if (!hasTitleField && Object.prototype.hasOwnProperty.call(item, "name")) {
+    const nameValue = item.name;
+    if (typeof nameValue === "string" && nameValue.trim().length === 0) {
+      return false;
+    }
+  }
+
+  return Object.entries(item).some(([key, value]) => {
+    if (key === LOCAL_ITEM_ID_KEY || key === "id") return false;
+    return hasMeaningfulContent(value);
+  });
+}
+
+function ensureLocalizedAdminConfigItem(
+  item: DataItem,
+  languageCodes: string[],
+  defaultLanguage: string
+): { item: DataItem; changed: boolean } {
+  let changed = false;
+  let nextItem = { ...item };
+
+  ADMIN_CONFIG_LOCALIZED_SECTIONS.forEach((sectionKey) => {
+    const sectionValue = nextItem[sectionKey];
+    if (!sectionValue || typeof sectionValue !== "object") {
+      return;
+    }
+
+    const sectionContainer: DataItem = {
+      id: sectionKey,
+      value: sectionValue,
+    };
+    const localizedSection = ensureLocalizedContentItems(
+      [sectionContainer],
+      languageCodes,
+      defaultLanguage
+    );
+    const localizedValue = localizedSection.items[0]?.value;
+
+    if (localizedSection.changed && localizedValue !== undefined) {
+      nextItem = {
+        ...nextItem,
+        [sectionKey]: localizedValue,
+      };
+      changed = true;
+    }
+  });
+
+  return { item: nextItem, changed };
+}
+
 function normalizeItem(item: DataItem): { item: DataItem; idChanged: boolean } {
   const localId =
     typeof item[LOCAL_ITEM_ID_KEY] === "string" && item[LOCAL_ITEM_ID_KEY]
@@ -99,6 +212,104 @@ function normalizeItems(items: DataItem[]): { items: DataItem[]; idsChanged: boo
   });
 
   return { items: normalizedItems, idsChanged };
+}
+
+function deepMerge(base: unknown, override: unknown): unknown {
+  if (override === undefined || override === null) {
+    return base;
+  }
+
+  if (
+    typeof base === "object" &&
+    base !== null &&
+    !Array.isArray(base) &&
+    typeof override === "object" &&
+    override !== null &&
+    !Array.isArray(override)
+  ) {
+    const merged: Record<string, unknown> = {
+      ...(base as Record<string, unknown>),
+    };
+
+    Object.entries(override as Record<string, unknown>).forEach(
+      ([key, value]) => {
+        merged[key] = deepMerge(merged[key], value);
+      }
+    );
+
+    return merged;
+  }
+
+  return override;
+}
+
+function ensureTranslationsForLanguages(
+  rawTranslations: Record<string, unknown>,
+  languageCodes: string[],
+  defaultLanguage: string
+): { translations: Record<string, unknown>; changed: boolean } {
+  const normalizedLanguageCodes = Array.from(
+    new Set(languageCodes.map((code) => normalizeLanguageCode(code)).filter(Boolean))
+  );
+  const normalizedDefault = normalizeLanguageCode(defaultLanguage || DEFAULT_LANGUAGE_CODE);
+  const sanitizedTranslations: Record<string, Record<string, unknown>> = {};
+  let changed = false;
+
+  Object.entries(rawTranslations).forEach(([code, value]) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return;
+
+    const normalizedCode = normalizeLanguageCode(code);
+    if (!normalizedLanguageCodes.includes(normalizedCode)) {
+      changed = true;
+      return;
+    }
+
+    if (code !== normalizedCode) {
+      changed = true;
+    }
+
+    const current = sanitizedTranslations[normalizedCode];
+    if (!current) {
+      sanitizedTranslations[normalizedCode] = value as Record<string, unknown>;
+      return;
+    }
+
+    const merged = deepMerge(current, value) as Record<string, unknown>;
+    if (JSON.stringify(merged) !== JSON.stringify(current)) {
+      changed = true;
+      sanitizedTranslations[normalizedCode] = merged;
+      return;
+    }
+
+    changed = true;
+  });
+
+  const firstLanguageCode = Object.keys(sanitizedTranslations)[0];
+  const fallbackLanguageCode = normalizedLanguageCodes.includes(normalizedDefault)
+    ? normalizedDefault
+    : DEFAULT_LANGUAGE_CODE;
+  const fallback = (sanitizedTranslations[fallbackLanguageCode] ||
+    sanitizedTranslations[DEFAULT_LANGUAGE_CODE] ||
+    (firstLanguageCode ? sanitizedTranslations[firstLanguageCode] : {})) as Record<
+    string,
+    unknown
+  >;
+  const normalizedTranslations: Record<string, unknown> = {};
+
+  normalizedLanguageCodes.forEach((code) => {
+    const current = sanitizedTranslations[code];
+    const merged = deepMerge(fallback, current || {}) as Record<string, unknown>;
+    normalizedTranslations[code] = merged;
+    if (!current || JSON.stringify(current) !== JSON.stringify(merged)) {
+      changed = true;
+    }
+  });
+
+  if (Object.keys(rawTranslations).length !== Object.keys(normalizedTranslations).length) {
+    changed = true;
+  }
+
+  return { translations: normalizedTranslations, changed };
 }
 
 function setValueAtPath(
@@ -156,6 +367,10 @@ function detectFields(items: DataItem[]): DynamicField[] {
   });
 }
 
+function isLanguageAwareFile(filePath: string): boolean {
+  return LANGUAGE_AWARE_FILES.has(filePath);
+}
+
 /**
  * Hook for admin CMS operations
  * @returns Admin hook with state and methods
@@ -168,14 +383,68 @@ export function useAdminCMS() {
   const [itemsByFile, setItemsByFile] = useState<Record<string, DataItem[]>>({});
   const [fieldsByFile, setFieldsByFile] = useState<Record<string, DynamicField[]>>({});
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
+  const [stagedFiles, setStagedFiles] = useState<Record<string, boolean>>({});
   const [isArrayFileByPath, setIsArrayFileByPath] = useState<Record<string, boolean>>({});
+  const [languageOptions, setLanguageOptions] = useState<LanguageOption[]>([
+    { code: DEFAULT_LANGUAGE_CODE, name: "English" },
+  ]);
+  const [availableLanguageCodes, setAvailableLanguageCodes] = useState<string[]>([
+    DEFAULT_LANGUAGE_CODE,
+  ]);
+  const [defaultLanguageCode, setDefaultLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
+  const [activeLanguageCode, setActiveLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
   const isCurrentFileArray = selectedFile ? isArrayFileByPath[selectedFile] !== false : true;
+
+  const applyLanguageState = useCallback(
+    (
+      languages: LanguageOption[],
+      defaultCode: string,
+      activeCodes?: string[]
+    ) => {
+      const normalized = normalizeLanguageConfig(languages, defaultCode, activeCodes);
+      setLanguageOptions(normalized.languages);
+      setAvailableLanguageCodes(normalized.activeLanguageCodes);
+      setDefaultLanguageCode(normalized.defaultLanguage);
+      setActiveLanguageCode((prevCode) =>
+        normalized.activeLanguageCodes.includes(prevCode)
+          ? prevCode
+          : normalized.defaultLanguage
+      );
+    },
+    []
+  );
+
+  const markFilesDirty = useCallback((filePaths: string[]) => {
+    if (filePaths.length === 0) return;
+
+    setDirtyFiles((prev) => {
+      const next = { ...prev };
+      filePaths.forEach((filePath) => {
+        next[filePath] = true;
+      });
+      return next;
+    });
+
+    setStagedFiles((prev) => {
+      const next = { ...prev };
+      filePaths.forEach((filePath) => {
+        next[filePath] = false;
+      });
+      return next;
+    });
+  }, []);
 
   const persistFile = useCallback(
     async (filePath: string, fileItems: DataItem[], password: string): Promise<boolean> => {
       const sanitizedItems = fileItems.map(stripLocalId);
+      const publishableItems =
+        isArrayFileByPath[filePath] === false
+          ? sanitizedItems
+          : sanitizedItems.filter(shouldPersistArrayItem);
       const contentToSave =
-        isArrayFileByPath[filePath] === false ? sanitizedItems[0] || {} : sanitizedItems;
+        isArrayFileByPath[filePath] === false
+          ? publishableItems[0] || {}
+          : publishableItems;
 
       const payload: JSONUpdatePayload = {
         filePath,
@@ -225,11 +494,106 @@ export function useAdminCMS() {
           return;
         }
 
-        const rawContent = (data.data as Record<string, unknown>).content;
+        let rawContent = (data.data as Record<string, unknown>).content;
+        let translationsUpdated = false;
+        let adminConfigUpdated = false;
+        let localizedContentUpdated = false;
+        let languageConfig = normalizeLanguageConfig(
+          languageOptions,
+          defaultLanguageCode,
+          availableLanguageCodes
+        );
+
+        const resolveAdminLanguageConfig = async (): Promise<void> => {
+          const cachedAdminRaw = itemsByFile[CMS_FILES.ADMIN_CONFIG]?.[0] as
+            | Record<string, unknown>
+            | undefined;
+          let adminRaw: Record<string, unknown> | null = cachedAdminRaw || null;
+
+          if (!adminRaw) {
+            const adminConfigResponse = await fetch(
+              `/api/get-json?filePath=${CMS_FILES.ADMIN_CONFIG}`
+            );
+            const adminConfigData = (await adminConfigResponse.json()) as APIResponse;
+            if (adminConfigData.success) {
+              adminRaw = (adminConfigData.data as Record<string, unknown>)
+                .content as Record<string, unknown>;
+            }
+          }
+
+          if (adminRaw) {
+            languageConfig = extractLanguageConfig(adminRaw);
+            applyLanguageState(
+              languageConfig.languages,
+              languageConfig.defaultLanguage,
+              languageConfig.activeLanguageCodes
+            );
+          }
+        };
+
+        if (
+          filePath === CMS_FILES.ADMIN_CONFIG &&
+          rawContent &&
+          typeof rawContent === "object" &&
+          !Array.isArray(rawContent)
+        ) {
+          const normalizedAdminConfig = applyLanguageConfigToAdminConfig(
+            rawContent as Record<string, unknown>
+          );
+          const localizedAdminConfig = ensureLocalizedAdminConfigItem(
+            normalizedAdminConfig.adminConfig as DataItem,
+            normalizedAdminConfig.languageConfig.languageCodes,
+            normalizedAdminConfig.languageConfig.defaultLanguage
+          );
+          rawContent = localizedAdminConfig.item;
+          languageConfig = normalizedAdminConfig.languageConfig;
+          adminConfigUpdated =
+            normalizedAdminConfig.changed || localizedAdminConfig.changed;
+          applyLanguageState(
+            languageConfig.languages,
+            languageConfig.defaultLanguage,
+            languageConfig.activeLanguageCodes
+          );
+        } else if (
+          filePath === CMS_FILES.TRANSLATIONS ||
+          isLanguageAwareFile(filePath)
+        ) {
+          try {
+            await resolveAdminLanguageConfig();
+          } catch (error) {
+            console.error("Failed to resolve site language configuration:", error);
+          }
+        }
+
+        if (
+          filePath === CMS_FILES.TRANSLATIONS &&
+          rawContent &&
+          typeof rawContent === "object" &&
+          !Array.isArray(rawContent)
+        ) {
+          const ensuredTranslations = ensureTranslationsForLanguages(
+            rawContent as Record<string, unknown>,
+            languageConfig.languageCodes,
+            languageConfig.defaultLanguage
+          );
+          rawContent = ensuredTranslations.translations;
+          translationsUpdated = ensuredTranslations.changed;
+        }
+
         const isArrayContent = Array.isArray(rawContent);
-        const loadedItems = (isArrayContent
+        let loadedItems = (isArrayContent
           ? (rawContent as DataItem[])
           : [rawContent as DataItem]) as DataItem[];
+
+        if (isLanguageAwareFile(filePath)) {
+          const localizedContent = ensureLocalizedContentItems(
+            loadedItems,
+            languageConfig.languageCodes,
+            languageConfig.defaultLanguage
+          );
+          loadedItems = localizedContent.items;
+          localizedContentUpdated = localizedContent.changed;
+        }
 
         const normalized = normalizeItems(loadedItems);
         const detectedFields = detectFields(normalized.items);
@@ -240,10 +604,24 @@ export function useAdminCMS() {
         setItemsByFile((prev) => ({ ...prev, [filePath]: normalized.items }));
         setFieldsByFile((prev) => ({ ...prev, [filePath]: detectedFields }));
         setIsArrayFileByPath((prev) => ({ ...prev, [filePath]: isArrayContent }));
-        setDirtyFiles((prev) => ({ ...prev, [filePath]: normalized.idsChanged }));
+        setDirtyFiles((prev) => ({
+          ...prev,
+          [filePath]:
+            normalized.idsChanged ||
+            translationsUpdated ||
+            adminConfigUpdated ||
+            localizedContentUpdated,
+        }));
+        setStagedFiles((prev) => ({ ...prev, [filePath]: false }));
 
         if (normalized.idsChanged) {
           toast.info("IDs normalized to lowercase category-title format");
+        } else if (adminConfigUpdated) {
+          toast.info("Site config synced with language settings");
+        } else if (translationsUpdated) {
+          toast.info("Translations synced with site language config");
+        } else if (localizedContentUpdated) {
+          toast.info("Localized content fields synced with site language config");
         } else {
           toast.success(forceRemote ? "Data reloaded successfully" : "Data loaded successfully");
         }
@@ -254,75 +632,88 @@ export function useAdminCMS() {
         setIsLoading(false);
       }
     },
-    [fieldsByFile, itemsByFile]
+    [
+      applyLanguageState,
+      availableLanguageCodes,
+      defaultLanguageCode,
+      fieldsByFile,
+      itemsByFile,
+      languageOptions,
+    ]
   );
 
   /**
-   * Save data to GitHub for the current file
+   * Save data locally for the current file.
+   * This stages changes for global publish.
    * @param filePath - File path to save
-   * @param password - Admin password
    */
   const saveData = useCallback(
-    async (filePath: string, password: string) => {
-      if (!filePath || !password) {
-        toast.error("Please select a file and enter password");
+    async (filePath: string) => {
+      if (!filePath) {
+        toast.error("Please select a file");
         return;
       }
 
-      const fileItems = itemsByFile[filePath] || (selectedFile === filePath ? items : []);
+      const filesToStage =
+        filePath === CMS_FILES.ADMIN_CONFIG
+          ? Object.entries(dirtyFiles)
+              .filter(([, isDirty]) => isDirty)
+              .map(([path]) => path)
+          : dirtyFiles[filePath]
+            ? [filePath]
+            : [];
 
-      if (!fileItems || fileItems.length === 0) {
-        toast.error("No items to save");
+      if (filesToStage.length === 0) {
+        toast.info("No local changes to save");
         return;
       }
 
-      setIsLoading(true);
-      try {
-        const isSaved = await persistFile(filePath, fileItems, password);
+      setStagedFiles((prev) => {
+        const next = { ...prev };
+        filesToStage.forEach((path) => {
+          next[path] = true;
+        });
+        return next;
+      });
 
-        if (!isSaved) {
-          toast.error("Failed to save data");
-          return;
-        }
-
-        setDirtyFiles((prev) => ({ ...prev, [filePath]: false }));
-        toast.success("Data saved successfully");
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to save data";
-        toast.error(errorMessage);
-      } finally {
-        setIsLoading(false);
+      if (filesToStage.length === 1) {
+        toast.success("Saved locally. Ready for global update.");
+      } else {
+        toast.success(
+          `Saved locally. ${filesToStage.length} files are ready for global update.`
+        );
       }
     },
-    [items, itemsByFile, persistFile, selectedFile]
+    [dirtyFiles]
   );
 
   /**
-   * Save all unsaved file drafts to GitHub
+   * Publish staged file drafts to GitHub
    * @param password - Admin password
    */
   const saveAllData = useCallback(
-    async (password: string) => {
+    async (password: string): Promise<SaveAllResult | null> => {
       if (!password) {
         toast.error("Please enter password");
-        return;
+        return null;
       }
 
-      const dirtyFilePaths = Object.entries(dirtyFiles)
-        .filter(([, isDirty]) => isDirty)
+      const stagedFilePaths = Object.entries(stagedFiles)
+        .filter(([, isStaged]) => isStaged)
         .map(([filePath]) => filePath);
 
-      if (dirtyFilePaths.length === 0) {
-        toast.info("No pending changes");
-        return;
+      if (stagedFilePaths.length === 0) {
+        toast.info("No local saves pending publish");
+        return null;
       }
 
       setIsLoading(true);
       try {
         let successCount = 0;
         let failedCount = 0;
+        const publishedFiles: string[] = [];
 
-        for (const filePath of dirtyFilePaths) {
+        for (const filePath of stagedFilePaths) {
           const fileItems = itemsByFile[filePath] || [];
           if (fileItems.length === 0) {
             failedCount += 1;
@@ -332,7 +723,9 @@ export function useAdminCMS() {
           const isSaved = await persistFile(filePath, fileItems, password);
           if (isSaved) {
             successCount += 1;
+            publishedFiles.push(filePath);
             setDirtyFiles((prev) => ({ ...prev, [filePath]: false }));
+            setStagedFiles((prev) => ({ ...prev, [filePath]: false }));
           } else {
             failedCount += 1;
           }
@@ -345,14 +738,17 @@ export function useAdminCMS() {
         if (failedCount > 0) {
           toast.error(`Failed to save ${failedCount} file(s)`);
         }
+
+        return { successCount, failedCount, publishedFiles };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to save all data";
         toast.error(errorMessage);
+        return null;
       } finally {
         setIsLoading(false);
       }
     },
-    [dirtyFiles, itemsByFile, persistFile]
+    [itemsByFile, persistFile, stagedFiles]
   );
 
   /**
@@ -387,11 +783,11 @@ export function useAdminCMS() {
         });
 
         setItemsByFile((prev) => ({ ...prev, [selectedFile]: updatedItems }));
-        setDirtyFiles((prev) => ({ ...prev, [selectedFile]: true }));
         return updatedItems;
       });
+      markFilesDirty([selectedFile]);
     },
-    [selectedFile]
+    [markFilesDirty, selectedFile]
   );
 
   /**
@@ -401,6 +797,13 @@ export function useAdminCMS() {
     if (!selectedFile) return;
 
     const hasIdField = fields.some((field) => field.name === "id");
+    const configuredLanguageCodes = Array.from(
+      new Set(
+        languageOptions
+          .map((language) => normalizeLanguageCode(language.code))
+          .filter(Boolean)
+      )
+    );
     const newItem: DataItem = {
       [LOCAL_ITEM_ID_KEY]: createLocalItemId(),
       id: hasIdField ? "" : generateId(),
@@ -426,14 +829,20 @@ export function useAdminCMS() {
     }
 
     setItems((prevItems: DataItem[]) => {
-      const updatedItems = [newItem, ...prevItems];
+      let updatedItems = [newItem, ...prevItems];
+      if (isLanguageAwareFile(selectedFile) && configuredLanguageCodes.length > 1) {
+        const localized = ensureLocalizedContentItems(
+          updatedItems,
+          configuredLanguageCodes,
+          defaultLanguageCode
+        );
+        updatedItems = localized.items;
+      }
       setItemsByFile((prev) => ({ ...prev, [selectedFile]: updatedItems }));
-      setDirtyFiles((prev) => ({ ...prev, [selectedFile]: true }));
       return updatedItems;
     });
-
-    toast.success("New item added");
-  }, [fields, selectedFile]);
+    toast.success("New item added. Fill fields to enable local save.");
+  }, [defaultLanguageCode, fields, languageOptions, selectedFile]);
 
   /**
    * Delete item
@@ -474,13 +883,13 @@ export function useAdminCMS() {
           (i: DataItem) => i[LOCAL_ITEM_ID_KEY] !== localItemId
         );
         setItemsByFile((prev) => ({ ...prev, [selectedFile]: updatedItems }));
-        setDirtyFiles((prev) => ({ ...prev, [selectedFile]: true }));
         return updatedItems;
       });
+      markFilesDirty([selectedFile]);
 
       toast.success("Item deleted");
     },
-    [fields, items, selectedFile]
+    [fields, items, markFilesDirty, selectedFile]
   );
 
   /**
@@ -594,15 +1003,17 @@ export function useAdminCMS() {
             ...prev,
             [selectedFile]: [...fields, newField],
           }));
-          setDirtyFiles((prev) => ({ ...prev, [selectedFile]: true }));
         }
 
         return updatedItems;
       });
+      if (selectedFile) {
+        markFilesDirty([selectedFile]);
+      }
 
       toast.success("Field added");
     },
-    [fields, selectedFile]
+    [fields, markFilesDirty, selectedFile]
   );
 
   /**
@@ -628,15 +1039,185 @@ export function useAdminCMS() {
             ...prev,
             [selectedFile]: fields.filter((f: DynamicField) => f.name !== fieldName),
           }));
-          setDirtyFiles((prev) => ({ ...prev, [selectedFile]: true }));
         }
 
         return updatedItems;
       });
+      if (selectedFile) {
+        markFilesDirty([selectedFile]);
+      }
 
       toast.success("Field removed");
     },
-    [fields, selectedFile]
+    [fields, markFilesDirty, selectedFile]
+  );
+
+  const updateLanguageConfig = useCallback(
+    async (
+      languages: LanguageOption[],
+      activeLanguageSelections: string[],
+      defaultLanguage: string
+    ) => {
+      const adminFileItems =
+        itemsByFile[CMS_FILES.ADMIN_CONFIG] ||
+        (selectedFile === CMS_FILES.ADMIN_CONFIG ? items : []);
+
+      if (!adminFileItems.length) {
+        toast.error("Load site configuration before updating languages");
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const normalizedLanguageConfig = normalizeLanguageConfig(
+          languages,
+          defaultLanguage,
+          activeLanguageSelections
+        );
+
+        const currentAdminItem = adminFileItems[0] as Record<string, unknown>;
+        const normalizedAdmin = applyLanguageConfigToAdminConfig(
+          currentAdminItem,
+          normalizedLanguageConfig
+        );
+        const localizedAdminConfig = ensureLocalizedAdminConfigItem(
+          normalizedAdmin.adminConfig as DataItem,
+          normalizedLanguageConfig.languageCodes,
+          normalizedLanguageConfig.defaultLanguage
+        );
+        const normalizedAdminItems = normalizeItems([
+          localizedAdminConfig.item,
+        ]).items;
+        const changedFilePaths = new Set<string>();
+        const nextItemsByFile: Record<string, DataItem[]> = {
+          ...itemsByFile,
+          [CMS_FILES.ADMIN_CONFIG]: normalizedAdminItems,
+        };
+        const nextFieldsByFile: Record<string, DynamicField[]> = {
+          ...fieldsByFile,
+          [CMS_FILES.ADMIN_CONFIG]: detectFields(normalizedAdminItems),
+        };
+        const nextArrayState: Record<string, boolean> = {
+          ...isArrayFileByPath,
+          [CMS_FILES.ADMIN_CONFIG]: false,
+        };
+
+        if (normalizedAdmin.changed || localizedAdminConfig.changed) {
+          changedFilePaths.add(CMS_FILES.ADMIN_CONFIG);
+        }
+
+        const hydrateFileItems = async (filePath: string): Promise<DataItem[] | null> => {
+          const cachedItems = nextItemsByFile[filePath];
+          if (cachedItems && cachedItems.length > 0) {
+            return cachedItems;
+          }
+
+          const response = await fetch(`/api/get-json?filePath=${filePath}`);
+          const data = (await response.json()) as APIResponse;
+          if (!data.success) {
+            throw new Error(data.error || `Failed to load ${filePath}`);
+          }
+
+          const rawContent = (data.data as Record<string, unknown>).content;
+          const isArrayContent = Array.isArray(rawContent);
+          const loadedItems = (isArrayContent
+            ? (rawContent as DataItem[])
+            : [rawContent as DataItem]) as DataItem[];
+          const normalizedLoadedItems = normalizeItems(loadedItems).items;
+          nextItemsByFile[filePath] = normalizedLoadedItems;
+          nextFieldsByFile[filePath] = detectFields(normalizedLoadedItems);
+          nextArrayState[filePath] = isArrayContent;
+          return normalizedLoadedItems;
+        };
+
+        for (const filePath of LANGUAGE_DEPENDENT_FILES) {
+          const fileItems = await hydrateFileItems(filePath);
+          if (!fileItems || fileItems.length === 0) continue;
+
+          if (filePath === CMS_FILES.TRANSLATIONS) {
+            const translationItem = fileItems[0];
+            const rawTranslations = { ...(translationItem as Record<string, unknown>) };
+            delete rawTranslations[LOCAL_ITEM_ID_KEY];
+
+            const ensuredTranslations = ensureTranslationsForLanguages(
+              rawTranslations,
+              normalizedLanguageConfig.languageCodes,
+              normalizedLanguageConfig.defaultLanguage
+            );
+
+            if (!ensuredTranslations.changed) continue;
+
+            const nextTranslationItem: DataItem = {
+              id:
+                typeof translationItem.id === "string" ||
+                typeof translationItem.id === "number"
+                  ? translationItem.id
+                  : "translations",
+              [LOCAL_ITEM_ID_KEY]: translationItem[LOCAL_ITEM_ID_KEY],
+            };
+            Object.entries(ensuredTranslations.translations).forEach(([key, value]) => {
+              nextTranslationItem[key] = value;
+            });
+
+            nextItemsByFile[CMS_FILES.TRANSLATIONS] = [nextTranslationItem];
+            nextFieldsByFile[CMS_FILES.TRANSLATIONS] = detectFields([nextTranslationItem]);
+            changedFilePaths.add(CMS_FILES.TRANSLATIONS);
+            continue;
+          }
+
+          const localized = ensureLocalizedContentItems(
+            fileItems,
+            normalizedLanguageConfig.languageCodes,
+            normalizedLanguageConfig.defaultLanguage
+          );
+
+          if (!localized.changed) continue;
+
+          nextItemsByFile[filePath] = localized.items;
+          nextFieldsByFile[filePath] = detectFields(localized.items);
+          changedFilePaths.add(filePath);
+        }
+
+        setItemsByFile(nextItemsByFile);
+        setFieldsByFile(nextFieldsByFile);
+        setIsArrayFileByPath(nextArrayState);
+        if (selectedFile && nextItemsByFile[selectedFile]) {
+          setItems(nextItemsByFile[selectedFile]);
+          setFields(
+            nextFieldsByFile[selectedFile] || detectFields(nextItemsByFile[selectedFile])
+          );
+        }
+        if (changedFilePaths.size > 0) {
+          markFilesDirty([...changedFilePaths]);
+          toast.success(
+            `Language configuration updated. ${changedFilePaths.size} file(s) changed.`
+          );
+        } else {
+          toast.info("Language configuration already up to date.");
+        }
+
+        applyLanguageState(
+          normalizedLanguageConfig.languages,
+          normalizedLanguageConfig.defaultLanguage,
+          normalizedLanguageConfig.activeLanguageCodes
+        );
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to update language configuration";
+        toast.error(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      applyLanguageState,
+      fieldsByFile,
+      isArrayFileByPath,
+      items,
+      itemsByFile,
+      markFilesDirty,
+      selectedFile,
+    ]
   );
 
   return {
@@ -646,9 +1227,16 @@ export function useAdminCMS() {
     isLoading,
     isCurrentFileArray,
     dirtyFiles,
+    stagedFiles,
+    languageOptions,
+    defaultLanguageCode,
+    activeLanguageCode,
+    availableLanguageCodes,
     loadData,
     saveData,
     saveAllData,
+    setActiveLanguageCode,
+    updateLanguageConfig,
     updateItemField,
     addItem,
     deleteItem,

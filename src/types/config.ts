@@ -20,6 +20,16 @@ export interface LogoConfig {
 /**
  * Site information object
  */
+export interface LanguageConfig {
+  /** Display language name */
+  name: string;
+  /** Language code, e.g. en, ta, hi */
+  code: string;
+}
+
+/**
+ * Site information object
+ */
 export interface SiteConfig {
   /** Site name */
   name: string;
@@ -33,6 +43,8 @@ export interface SiteConfig {
   logo: LogoConfig;
   /** Default language code */
   defaultLanguage: string;
+  /** Language configuration entries */
+  languages: LanguageConfig[];
   /** Array of available language codes */
   availableLanguages: string[];
 }

@@ -19,12 +19,26 @@ import {
   Globe,
   LogOut,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  CircleDot,
+  CloudUpload,
+  Languages,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { useAdminCMS } from "@/hooks/useAdminCMS";
 import { ItemEditorComponent } from "@/components/admin/ItemEditorComponent";
-import { CMS_FILES, getFileMetadata } from "@/lib/cms-utils";
+import { CMS_FILES, getFileLabel, getFileMetadata } from "@/lib/cms-utils";
 
 /**
  * Icon map
@@ -36,16 +50,40 @@ const ICON_MAP: Record<string, typeof Settings> = {
   Globe,
 };
 
+const SITE_CONFIG_SECTION_ORDER = [
+  { key: "site", label: "Site Settings" },
+  { key: "seo", label: "SEO Settings" },
+  { key: "about", label: "About Us" },
+  { key: "contact", label: "Contact Details" },
+  { key: "hero", label: "Hero Section" },
+  { key: "theme", label: "Theme Settings" },
+  { key: "socialMedia", label: "Other Settings" },
+] as const;
+
+interface PublishSummary {
+  successCount: number;
+  failedCount: number;
+  publishedFiles: string[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 /**
  * File Card
  */
 function FileCard({
   filePath,
   selected,
+  hasDraftChanges,
+  isQueued,
   onClick,
 }: {
   filePath: string;
   selected: boolean;
+  hasDraftChanges?: boolean;
+  isQueued?: boolean;
   onClick: () => void;
 }) {
   const metadata = getFileMetadata(filePath);
@@ -86,6 +124,22 @@ function FileCard({
       <p className="text-sm text-gray-600 mt-1">
         {metadata.description}
       </p>
+      {(hasDraftChanges || isQueued) && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {hasDraftChanges && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-700">
+              <CircleDot className="h-3 w-3" />
+              Draft
+            </span>
+          )}
+          {isQueued && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-medium text-emerald-700">
+              <CheckCircle2 className="h-3 w-3" />
+              Queued
+            </span>
+          )}
+        </div>
+      )}
 
       <code className="text-xs mt-3 block text-gray-400 font-mono">
         {filePath}
@@ -99,6 +153,12 @@ export default function AdminDashboard() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectFileInput, setSelectFileInput] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [newLanguageName, setNewLanguageName] = useState("");
+  const [newLanguageCode, setNewLanguageCode] = useState("");
+  const [isLanguageSettingsExpanded, setIsLanguageSettingsExpanded] = useState(false);
+  const [isSiteDetailsExpanded, setIsSiteDetailsExpanded] = useState(false);
+  const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
 
   const {
     items,
@@ -107,9 +167,16 @@ export default function AdminDashboard() {
     isLoading,
     isCurrentFileArray,
     dirtyFiles,
+    stagedFiles,
     loadData,
     saveData,
     saveAllData,
+    languageOptions,
+    defaultLanguageCode,
+    activeLanguageCode,
+    availableLanguageCodes,
+    setActiveLanguageCode,
+    updateLanguageConfig,
     updateItemField,
     addItem,
     deleteItem,
@@ -119,13 +186,70 @@ export default function AdminDashboard() {
   const selectedMetadata = selectedFile
     ? getFileMetadata(selectedFile)
     : null;
-  const dirtyFileCount = Object.values(dirtyFiles).filter(Boolean).length;
+  const stagedFileCount = Object.entries(stagedFiles).filter(
+    ([filePath, isStaged]) => isStaged && dirtyFiles[filePath]
+  ).length;
+  const draftFileCount = Object.entries(dirtyFiles).filter(
+    ([filePath, isDirty]) => isDirty && !stagedFiles[filePath]
+  ).length;
+  const selectedFileHasDraftChanges = selectedFile
+    ? Boolean(dirtyFiles[selectedFile] && !stagedFiles[selectedFile])
+    : false;
+  const selectedFileIsQueued = selectedFile
+    ? Boolean(dirtyFiles[selectedFile] && stagedFiles[selectedFile])
+    : false;
   const hasIdField = fields.some((field) => field.name === "id");
   const hasIdSourceField = fields.some((field) =>
     ["title", "name", "category"].includes(field.name)
   );
   const isAutoIdFile =
     hasIdField && hasIdSourceField;
+  const allLanguageCodes = languageOptions.map((language) => language.code);
+  const editableLanguageCodes =
+    availableLanguageCodes.length > 0
+      ? availableLanguageCodes
+      : [defaultLanguageCode];
+  const isLanguageEditableFile =
+    selectedFile === CMS_FILES.PROJECTS ||
+    selectedFile === CMS_FILES.SERVICES ||
+    selectedFile === CMS_FILES.ADMIN_CONFIG;
+  const isSiteConfigFile = selectedFile === CMS_FILES.ADMIN_CONFIG;
+  const hideAddItemButton =
+    selectedFile === CMS_FILES.ADMIN_CONFIG || selectedFile === CMS_FILES.TRANSLATIONS;
+  const canAddTopLevelItems = isCurrentFileArray && !hideAddItemButton;
+  const siteConfigItem = isSiteConfigFile ? items[0] : null;
+  const siteConfigLocalId =
+    siteConfigItem &&
+    (typeof siteConfigItem.__localId === "string"
+      ? (siteConfigItem.__localId as string)
+      : String(siteConfigItem.id ?? ""));
+  const siteConfigData = isRecord(siteConfigItem) ? siteConfigItem : null;
+  const siteDetails = siteConfigData && isRecord(siteConfigData.site)
+    ? (siteConfigData.site as Record<string, unknown>)
+    : null;
+  const siteConfigHiddenFieldPaths = [
+    "site.defaultLanguage",
+    "site.languages",
+    "site.availableLanguages",
+  ];
+  const knownSiteConfigSectionKeys = new Set<string>(
+    SITE_CONFIG_SECTION_ORDER.map((section) => section.key)
+  );
+  const siteConfigSections = [
+    ...SITE_CONFIG_SECTION_ORDER.filter((section) =>
+      fields.some((field) => field.name === section.key)
+    ),
+    ...fields
+      .filter((field) => !knownSiteConfigSectionKeys.has(field.name))
+      .map((field) => ({
+        key: field.name,
+        label: field.label || field.name,
+      })),
+  ];
+
+  const getLanguageName = (languageCode: string) =>
+    languageOptions.find((language) => language.code === languageCode)?.name ||
+    languageCode.toUpperCase();
 
   // When user authenticates, auto-select and load the default site configuration
   useEffect(() => {
@@ -173,11 +297,15 @@ export default function AdminDashboard() {
 
   const handleSave = () => {
     if (!selectedFile) return;
-    saveData(selectedFile, password);
+    saveData(selectedFile);
   };
 
-  const handleSaveAll = () => {
-    saveAllData(password);
+  const handleSaveAll = async () => {
+    const result = await saveAllData(password);
+    if (!result || result.successCount === 0) return;
+
+    setPublishSummary(result);
+    setIsPublishDialogOpen(true);
   };
 
   const handleDeleteItem = (localItemId: string) => {
@@ -188,6 +316,57 @@ export default function AdminDashboard() {
 
   const handleImageUpload = (localItemId: string) => (file: File) => {
     uploadImage(localItemId, file, password);
+  };
+
+  const handleAddLanguage = () => {
+    const code = newLanguageCode.trim().toLowerCase();
+    const name = newLanguageName.trim();
+    if (!code) return;
+
+    const existing = languageOptions.find((language) => language.code === code);
+    if (existing) {
+      const nextActiveCodes = availableLanguageCodes.includes(code)
+        ? availableLanguageCodes
+        : [...availableLanguageCodes, code];
+      updateLanguageConfig(languageOptions, nextActiveCodes, defaultLanguageCode);
+    } else {
+      updateLanguageConfig(
+        [...languageOptions, { code, name: name || code.toUpperCase() }],
+        [...availableLanguageCodes, code],
+        defaultLanguageCode
+      );
+    }
+
+    setNewLanguageCode("");
+    setNewLanguageName("");
+  };
+
+  const handleToggleActiveLanguage = (languageCode: string) => {
+    const nextActiveCodes = availableLanguageCodes.includes(languageCode)
+      ? availableLanguageCodes.filter((code) => code !== languageCode)
+      : [...availableLanguageCodes, languageCode];
+    updateLanguageConfig(languageOptions, nextActiveCodes, defaultLanguageCode);
+  };
+
+  const handleDefaultLanguageChange = (languageCode: string) => {
+    updateLanguageConfig(languageOptions, availableLanguageCodes, languageCode);
+  };
+
+  const handleRemoveLanguage = (languageCode: string) => {
+    if (languageCode === "en") return;
+    const nextLanguages = languageOptions.filter((language) => language.code !== languageCode);
+    const nextActiveCodes = availableLanguageCodes.filter((code) => code !== languageCode);
+    const nextDefault =
+      languageCode === defaultLanguageCode
+        ? nextActiveCodes[0] || nextLanguages[0]?.code || defaultLanguageCode
+        : defaultLanguageCode;
+
+    updateLanguageConfig(nextLanguages, nextActiveCodes, nextDefault);
+  };
+
+  const handleSiteDetailsChange = (field: string, value: string) => {
+    if (!siteConfigLocalId) return;
+    updateItemField(siteConfigLocalId, ["site", field], value);
   };
 
   /**
@@ -267,6 +446,12 @@ export default function AdminDashboard() {
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">{metadata.label}</span>
+                {dirtyFiles[filePath] && !stagedFiles[filePath] && (
+                  <span className="ml-auto inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
+                )}
+                {dirtyFiles[filePath] && stagedFiles[filePath] && (
+                  <CheckCircle2 className="ml-auto h-4 w-4 text-emerald-600" />
+                )}
               </button>
             );
           })}
@@ -293,25 +478,45 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-500">Manage content</p>
           </div>
 
-          {dirtyFileCount > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700">
-                {dirtyFileCount} unsaved
-              </span>
-              <Button
-                onClick={handleSaveAll}
-                disabled={isLoading}
-                className="bg-indigo-600 hover:bg-indigo-700"
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 border rounded-lg px-2 py-1">
+              <span className="text-xs text-slate-500">Language</span>
+              <select
+                value={activeLanguageCode}
+                onChange={(e) => setActiveLanguageCode(e.target.value)}
+                className="text-sm bg-transparent outline-none"
               >
-                {isLoading ? (
-                  <Loader className="animate-spin h-4 w-4" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                Save All
-              </Button>
+                {editableLanguageCodes.map((languageCode) => (
+                  <option key={languageCode} value={languageCode}>
+                    {getLanguageName(languageCode)}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
+
+            {draftFileCount > 0 && (
+              <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700">
+                {draftFileCount} draft
+              </span>
+            )}
+            {stagedFileCount > 0 && (
+              <span className="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">
+                {stagedFileCount} queued
+              </span>
+            )}
+            <Button
+              onClick={handleSaveAll}
+              disabled={isLoading || stagedFileCount === 0}
+              className="rounded-[5px] bg-indigo-600 hover:bg-indigo-700"
+            >
+              {isLoading ? (
+                <Loader className="animate-spin h-4 w-4" />
+              ) : (
+                <CloudUpload className="h-4 w-4" />
+              )}
+              Global Save Changes ({stagedFileCount})
+            </Button>
+          </div>
         </header>
 
         {/* CONTENT */}
@@ -324,6 +529,8 @@ export default function AdminDashboard() {
                   key={filePath}
                   filePath={filePath}
                   selected={selectFileInput === filePath}
+                  hasDraftChanges={Boolean(dirtyFiles[filePath] && !stagedFiles[filePath])}
+                  isQueued={Boolean(dirtyFiles[filePath] && stagedFiles[filePath])}
                   onClick={() => handleSelectFile(filePath)}
                 />
               ))}
@@ -364,7 +571,7 @@ export default function AdminDashboard() {
                       variant="outline"
                       onClick={handleReload}
                       disabled={isLoading}
-                      className="text-slate-700"
+                      className="rounded-[5px] text-slate-700"
                     >
                       {isLoading ? (
                         <Loader className="animate-spin h-4 w-4" />
@@ -373,35 +580,283 @@ export default function AdminDashboard() {
                       )}
                       Reload
                     </Button>
-                    <Button
-                      onClick={addItem}
-                      disabled={isLoading || !isCurrentFileArray}
-                      title={isCurrentFileArray ? undefined : "This file uses a single object structure"}
-                      className="inline-flex items-center gap-2 rounded-[6px] text-center"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Item
-                    </Button>
-                    <Button
-                      onClick={handleSave}
-                      disabled={isLoading}
-                      className="inline-flex items-center gap-2 rounded-[6px] text-center bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      {isLoading ? (
-                        <Loader className="animate-spin h-4 w-4" />
-                      ) : (
-                        <Save className="h-4 w-4" />
-                      )}
-                      Save Current
-                    </Button>
+                    {canAddTopLevelItems && (
+                      <Button
+                        onClick={addItem}
+                        disabled={isLoading}
+                        className="inline-flex items-center gap-2 rounded-[6px] text-center"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Add Item
+                      </Button>
+                    )}
+                    {selectedFileHasDraftChanges && (
+                      <Button
+                        onClick={handleSave}
+                        disabled={isLoading}
+                        className="inline-flex items-center gap-2 rounded-[6px] text-center bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        {isLoading ? (
+                          <Loader className="animate-spin h-4 w-4" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
+                        Save Current Locally
+                      </Button>
+                    )}
                   </div>
                 </div>
-                {isAutoIdFile && (
-                  <p className="text-xs text-slate-500">
-                    IDs are auto-generated globally as lowercase category-title (or title/name).
-                  </p>
-                )}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {selectedFileHasDraftChanges && (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">
+                      Draft changes pending local save
+                    </span>
+                  )}
+                  {selectedFileIsQueued && (
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
+                      Local save complete. Ready for global update
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {isSiteConfigFile && (
+                <div className="p-4 border-b bg-slate-50/70">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700">
+                            <Languages className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              Language Settings
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Add, remove, and activate site languages.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setIsLanguageSettingsExpanded((prevValue) => !prevValue)
+                          }
+                          className="h-8 px-2 text-xs"
+                        >
+                          {isLanguageSettingsExpanded ? "Collapse" : "Expand"}
+                          {isLanguageSettingsExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+
+                      {isLanguageSettingsExpanded && (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-slate-600">
+                                Default Language
+                              </label>
+                              <select
+                                value={defaultLanguageCode}
+                                onChange={(e) => handleDefaultLanguageChange(e.target.value)}
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                              >
+                                {languageOptions.map((language) => (
+                                  <option key={language.code} value={language.code}>
+                                    {language.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-slate-600">
+                                Active Language Selector
+                              </label>
+                              <select
+                                value={activeLanguageCode}
+                                onChange={(e) => setActiveLanguageCode(e.target.value)}
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                              >
+                                {editableLanguageCodes.map((languageCode) => (
+                                  <option key={languageCode} value={languageCode}>
+                                    {getLanguageName(languageCode)}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
+                            {languageOptions.map((language) => {
+                              const canRemove =
+                                language.code !== defaultLanguageCode &&
+                                language.code !== "en";
+                              return (
+                                <div
+                                  key={language.code}
+                                  className="flex items-center justify-between gap-2 rounded-md bg-white border border-slate-200 px-3 py-2"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium text-slate-800">
+                                      {language.name}
+                                    </div>
+                                    <div className="text-xs text-slate-500 uppercase">
+                                      {language.code}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                                      <input
+                                        type="checkbox"
+                                        checked={availableLanguageCodes.includes(language.code)}
+                                        onChange={() => handleToggleActiveLanguage(language.code)}
+                                      />
+                                      Active
+                                    </label>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleRemoveLanguage(language.code)}
+                                      disabled={!canRemove}
+                                      className="text-red-600 border-red-200 hover:bg-red-50"
+                                    >
+                                      Remove
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-[1fr,140px,120px] gap-3 items-end">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-slate-600">
+                                Language Name
+                              </label>
+                              <input
+                                type="text"
+                                value={newLanguageName}
+                                onChange={(e) => setNewLanguageName(e.target.value)}
+                                placeholder="Telugu"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-slate-600">
+                                Language Code
+                              </label>
+                              <input
+                                type="text"
+                                value={newLanguageCode}
+                                onChange={(e) => setNewLanguageCode(e.target.value)}
+                                placeholder="tel"
+                                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm lowercase"
+                              />
+                            </div>
+                            <Button
+                              onClick={handleAddLanguage}
+                              disabled={!newLanguageCode.trim()}
+                              className="h-10"
+                            >
+                              Add Language
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                            <Settings className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              Site Details
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              Basic identity fields used across the website.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setIsSiteDetailsExpanded((prevValue) => !prevValue)
+                          }
+                          className="h-8 px-2 text-xs"
+                        >
+                          {isSiteDetailsExpanded ? "Collapse" : "Expand"}
+                          {isSiteDetailsExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                      {isSiteDetailsExpanded && (
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">Site Name</label>
+                            <input
+                              type="text"
+                              value={String(siteDetails?.name ?? "")}
+                              onChange={(e) => handleSiteDetailsChange("name", e.target.value)}
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">
+                              Company Name
+                            </label>
+                            <input
+                              type="text"
+                              value={String(siteDetails?.companyName ?? "")}
+                              onChange={(e) =>
+                                handleSiteDetailsChange("companyName", e.target.value)
+                              }
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">Tagline</label>
+                            <input
+                              type="text"
+                              value={String(siteDetails?.tagline ?? "")}
+                              onChange={(e) => handleSiteDetailsChange("tagline", e.target.value)}
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">
+                              Description
+                            </label>
+                            <textarea
+                              value={String(siteDetails?.description ?? "")}
+                              onChange={(e) =>
+                                handleSiteDetailsChange("description", e.target.value)
+                              }
+                              rows={4}
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm resize-y"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="p-4 space-y-4 max-h-[calc(100vh-240px)] overflow-y-auto no-scrollbar">
                 {items.length === 0 ? (
@@ -409,41 +864,74 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-600 mb-4">
                       No records found for this file yet.
                     </p>
-                    <Button
-                      onClick={addItem}
-                      disabled={isLoading || !isCurrentFileArray}
-                      title={
-                        isCurrentFileArray
-                          ? undefined
-                          : "This file uses a single object structure"
-                      }
-                    >
-                      <Plus className="h-4 w-4" />
-                      Create First Item
-                    </Button>
+                    {canAddTopLevelItems && (
+                      <Button
+                        onClick={addItem}
+                        disabled={isLoading}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Create First Item
+                      </Button>
+                    )}
                   </div>
                 ) : (
-                  items.map((item) => {
-                    const localItemId =
-                      (item.__localId as string) || String(item.id);
-
-                    return (
-                      <div key={localItemId} className="border p-3 rounded-md bg-gray-50">
-                      <ItemEditorComponent
-                        item={item}
-                        fields={fields}
-                        password={password}
-                        disabled={isLoading}
-                        autoIdFromContent={isAutoIdFile}
-                        onFieldChange={(f, v) =>
-                          updateItemField(localItemId, f, v)
-                        }
-                        onImageUpload={handleImageUpload(localItemId)}
-                        onDelete={() => handleDeleteItem(localItemId)}
-                      />
+                  isSiteConfigFile && siteConfigItem && siteConfigLocalId ? (
+                    siteConfigSections.map((section) => (
+                      <div
+                        key={`${siteConfigLocalId}-${section.key}`}
+                        className="border p-3 rounded-md bg-gray-50"
+                      >
+                        <ItemEditorComponent
+                          item={siteConfigItem}
+                          fields={fields}
+                          password={password}
+                          disabled={isLoading}
+                          autoIdFromContent={false}
+                          activeLanguageCode={activeLanguageCode}
+                          defaultLanguageCode={defaultLanguageCode}
+                          availableLanguageCodes={allLanguageCodes}
+                          enableLanguageEditing={isLanguageEditableFile}
+                          languageEditableRootPaths={["hero", "about"]}
+                          hiddenFieldPaths={siteConfigHiddenFieldPaths}
+                          filterFieldNames={[section.key]}
+                          titleOverride={section.label}
+                          hideDeleteAction
+                          defaultExpanded={false}
+                          onFieldChange={(f, v) =>
+                            updateItemField(siteConfigLocalId, f, v)
+                          }
+                          onImageUpload={handleImageUpload(siteConfigLocalId)}
+                          onDelete={() => {}}
+                        />
                       </div>
-                    );
-                  })
+                    ))
+                  ) : (
+                    items.map((item) => {
+                      const localItemId =
+                        (item.__localId as string) || String(item.id);
+
+                      return (
+                        <div key={localItemId} className="border p-3 rounded-md bg-gray-50">
+                          <ItemEditorComponent
+                            item={item}
+                            fields={fields}
+                            password={password}
+                            disabled={isLoading}
+                            autoIdFromContent={isAutoIdFile}
+                            activeLanguageCode={activeLanguageCode}
+                            defaultLanguageCode={defaultLanguageCode}
+                            availableLanguageCodes={allLanguageCodes}
+                            enableLanguageEditing={isLanguageEditableFile}
+                            onFieldChange={(f, v) =>
+                              updateItemField(localItemId, f, v)
+                            }
+                            onImageUpload={handleImageUpload(localItemId)}
+                            onDelete={() => handleDeleteItem(localItemId)}
+                          />
+                        </div>
+                      );
+                    })
+                  )
                 )}
               </div>
             </div>
@@ -451,6 +939,37 @@ export default function AdminDashboard() {
         </main>
         </div>
       </div>
+      <Dialog open={isPublishDialogOpen} onOpenChange={setIsPublishDialogOpen}>
+        <DialogContent className="border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-sky-50">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-emerald-700">
+              <CheckCircle2 className="h-5 w-5" />
+              Successfully Updated
+            </DialogTitle>
+            <DialogDescription>
+              Your queued CMS changes are published. It can take a few minutes for updates to appear on the live site.
+            </DialogDescription>
+          </DialogHeader>
+          {publishSummary && (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm space-y-1">
+              <p className="font-medium text-slate-800">
+                {publishSummary.successCount} file(s) updated
+              </p>
+              {publishSummary.failedCount > 0 && (
+                <p className="text-red-600">
+                  {publishSummary.failedCount} file(s) failed to update
+                </p>
+              )}
+              {publishSummary.publishedFiles.length > 0 && (
+                <p className="text-slate-600">
+                  {publishSummary.publishedFiles.map((filePath) => getFileLabel(filePath)).join(", ")}
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter showCloseButton />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

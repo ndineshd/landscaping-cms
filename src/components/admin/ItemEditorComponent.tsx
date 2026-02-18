@@ -9,6 +9,11 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { DataItem, DynamicField } from "@/types/cms";
 import { stringifyValue } from "@/lib/cms-utils";
+import {
+  buildLocalizedFieldKey,
+  isLanguageVariantKey,
+  isTranslatableTextField,
+} from "@/lib/language-utils";
 
 interface ItemEditorComponentProps {
   /** Item to edit */
@@ -27,6 +32,26 @@ interface ItemEditorComponentProps {
   autoIdFromContent?: boolean;
   /** Whether component is disabled */
   disabled?: boolean;
+  /** Active language code used in editor */
+  activeLanguageCode?: string;
+  /** Default language code configured for site */
+  defaultLanguageCode?: string;
+  /** Configured language codes */
+  availableLanguageCodes?: string[];
+  /** Enable language-aware editing for this file */
+  enableLanguageEditing?: boolean;
+  /** Exact dot-paths to hide from rendering */
+  hiddenFieldPaths?: string[];
+  /** Limit rendered top-level fields to this list */
+  filterFieldNames?: string[];
+  /** Limit language-aware editing to these top-level roots */
+  languageEditableRootPaths?: string[];
+  /** Custom heading used for collapsed and expanded title */
+  titleOverride?: string;
+  /** Hide delete action (used for singleton config editors) */
+  hideDeleteAction?: boolean;
+  /** Initial expand state */
+  defaultExpanded?: boolean;
 }
 
 function toLabel(value: string): string {
@@ -71,18 +96,82 @@ export function ItemEditorComponent({
   onDelete,
   autoIdFromContent,
   disabled,
+  activeLanguageCode = "en",
+  defaultLanguageCode = "en",
+  availableLanguageCodes = ["en"],
+  enableLanguageEditing = false,
+  hiddenFieldPaths = [],
+  filterFieldNames,
+  languageEditableRootPaths,
+  titleOverride,
+  hideDeleteAction = false,
+  defaultExpanded = false,
 }: Readonly<ItemEditorComponentProps>) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const languageCodes = Array.from(new Set(availableLanguageCodes));
+  const isSecondaryLanguageSelected =
+    enableLanguageEditing && activeLanguageCode !== defaultLanguageCode;
   const hiddenKeys = new Set<string>(["__localId"]);
+  const hiddenPathSet = new Set(hiddenFieldPaths);
+  const filteredFieldSet = filterFieldNames ? new Set(filterFieldNames) : null;
+  const languageEditableRootSet = languageEditableRootPaths
+    ? new Set(languageEditableRootPaths)
+    : null;
   if (autoIdFromContent) hiddenKeys.add("id");
 
-  const displayTitle = stringifyValue(item.title) || stringifyValue(item.name);
+  const isHiddenPath = (fieldPath: (string | number)[]) =>
+    hiddenPathSet.has(fieldPath.map((segment) => String(segment)).join("."));
+  const isLanguageEditablePath = (fieldPath: (string | number)[]) => {
+    if (!languageEditableRootSet || languageEditableRootSet.size === 0) {
+      return true;
+    }
+    const rootSegment = fieldPath[0];
+    return typeof rootSegment === "string" && languageEditableRootSet.has(rootSegment);
+  };
+
+  const getLocalizedPreviewValue = (
+    fieldName: string,
+    value: unknown,
+    fieldPath: (string | number)[]
+  ): unknown => {
+    if (!isSecondaryLanguageSelected) {
+      return value;
+    }
+
+    if (!isLanguageEditablePath(fieldPath)) {
+      return value;
+    }
+
+    if (!isTranslatableTextField(fieldName, value, languageCodes)) {
+      return value;
+    }
+
+    const localizedKey = buildLocalizedFieldKey(fieldName, activeLanguageCode);
+    const localizedValue = item[localizedKey];
+    return typeof localizedValue === "string" ? localizedValue : value;
+  };
+
+  const localizedTitleKey = buildLocalizedFieldKey("title", activeLanguageCode);
+  const localizedNameKey = buildLocalizedFieldKey("name", activeLanguageCode);
+  const displayTitle =
+    (isSecondaryLanguageSelected
+      ? stringifyValue(item[localizedTitleKey] ?? item.title) ||
+        stringifyValue(item[localizedNameKey] ?? item.name)
+      : stringifyValue(item.title) || stringifyValue(item.name));
   const hasSavedIdentity =
     typeof item.id === "number" ||
     (typeof item.id === "string" && item.id.trim().length > 0);
 
   const previewEntries = Object.entries(item)
-    .filter(([key, value]) => !hiddenKeys.has(key) && !isRecord(value) && !Array.isArray(value))
+    .filter(([key, value]) => {
+      if (filteredFieldSet && !filteredFieldSet.has(key)) return false;
+      if (hiddenKeys.has(key)) return false;
+      if (enableLanguageEditing && isLanguageVariantKey(key, languageCodes)) {
+        return false;
+      }
+      return !isRecord(value) && !Array.isArray(value);
+    })
+    .map(([key, value]) => [key, getLocalizedPreviewValue(key, value, [key])] as const)
     .slice(0, 2);
 
   const handleArrayAdd = (
@@ -171,11 +260,31 @@ export function ItemEditorComponent({
     fieldName: string,
     value: unknown,
     fieldPath: (string | number)[],
-    depth = 0
+    depth = 0,
+    parentRecord?: Record<string, unknown>
   ): JSX.Element | null => {
     if (hiddenKeys.has(fieldName)) return null;
+    if (isHiddenPath(fieldPath)) return null;
+    if (enableLanguageEditing && isLanguageVariantKey(fieldName, languageCodes)) return null;
 
-    if (Array.isArray(value)) {
+    let resolvedValue = value;
+    let resolvedFieldPath = fieldPath;
+
+    if (
+      isSecondaryLanguageSelected &&
+      parentRecord &&
+      isLanguageEditablePath(fieldPath) &&
+      isTranslatableTextField(fieldName, value, languageCodes)
+    ) {
+      const localizedKey = buildLocalizedFieldKey(fieldName, activeLanguageCode);
+      resolvedFieldPath = [...fieldPath.slice(0, -1), localizedKey];
+      const localizedValue = parentRecord[localizedKey];
+      if (typeof localizedValue === "string") {
+        resolvedValue = localizedValue;
+      }
+    }
+
+    if (Array.isArray(resolvedValue)) {
       return (
         <div
           key={fieldPath.join(".")}
@@ -186,7 +295,7 @@ export function ItemEditorComponent({
             <button
               type="button"
               disabled={disabled}
-              onClick={() => handleArrayAdd(fieldPath, fieldName, value)}
+              onClick={() => handleArrayAdd(resolvedFieldPath, fieldName, resolvedValue)}
               className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -194,11 +303,11 @@ export function ItemEditorComponent({
             </button>
           </div>
 
-          {value.length === 0 ? (
+          {resolvedValue.length === 0 ? (
             <p className="text-xs text-slate-500">No items yet.</p>
           ) : (
-            value.map((entry, index) => {
-              const itemPath = [...fieldPath, index];
+            resolvedValue.map((entry, index) => {
+              const itemPath = [...resolvedFieldPath, index];
               return (
                 <div
                   key={`${fieldPath.join(".")}-${index}`}
@@ -211,7 +320,7 @@ export function ItemEditorComponent({
                     <button
                       type="button"
                       disabled={disabled}
-                      onClick={() => handleArrayRemove(fieldPath, value, index)}
+                      onClick={() => handleArrayRemove(resolvedFieldPath, resolvedValue, index)}
                       className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -222,7 +331,13 @@ export function ItemEditorComponent({
                   {isRecord(entry) ? (
                     <div className="space-y-3">
                       {Object.entries(entry).map(([childKey, childValue]) =>
-                        renderField(childKey, childValue, [...itemPath, childKey], depth + 1)
+                        renderField(
+                          childKey,
+                          childValue,
+                          [...itemPath, childKey],
+                          depth + 1,
+                          entry
+                        )
                       )}
                     </div>
                   ) : (
@@ -241,7 +356,7 @@ export function ItemEditorComponent({
       );
     }
 
-    if (isRecord(value)) {
+    if (isRecord(resolvedValue)) {
       return (
         <div
           key={fieldPath.join(".")}
@@ -251,8 +366,14 @@ export function ItemEditorComponent({
         >
           <h4 className="text-sm font-semibold text-slate-800">{toLabel(fieldName)}</h4>
           <div className="space-y-3">
-            {Object.entries(value).map(([childKey, childValue]) =>
-              renderField(childKey, childValue, [...fieldPath, childKey], depth + 1)
+            {Object.entries(resolvedValue).map(([childKey, childValue]) =>
+              renderField(
+                childKey,
+                childValue,
+                [...resolvedFieldPath, childKey],
+                depth + 1,
+                resolvedValue
+              )
             )}
           </div>
         </div>
@@ -262,33 +383,38 @@ export function ItemEditorComponent({
     return (
       <div key={fieldPath.join(".")} className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">{toLabel(fieldName)}</label>
-        {renderScalarField(fieldName, value, fieldPath)}
+        {renderScalarField(fieldName, resolvedValue, resolvedFieldPath)}
       </div>
     );
   };
+
+  const collapsedTitle = titleOverride || (hasSavedIdentity ? displayTitle || String(item.id) : "");
+  const expandedTitle = titleOverride || (hasSavedIdentity ? displayTitle || String(item.id) : "Editing draft");
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg">
       {!expanded ? (
         <div className="flex items-center justify-between p-3">
           <div className="min-w-0">
-            {hasSavedIdentity ? (
+            {collapsedTitle ? (
               <div className="text-sm font-medium text-gray-900 truncate">
-                {displayTitle || String(item.id)}
+                {collapsedTitle}
               </div>
             ) : (
               <div className="text-xs font-medium text-amber-600 uppercase tracking-wide">
                 Draft item
               </div>
             )}
-            <div className="text-xs text-gray-500 mt-1 flex gap-2">
-              {previewEntries.map(([key, value]) => (
-                <div key={key} className="truncate">
-                  <span className="font-medium">{toLabel(key)}:</span>{" "}
-                  <span className="opacity-90">{stringifyValue(value)}</span>
-                </div>
-              ))}
-            </div>
+            {previewEntries.length > 0 && (
+              <div className="text-xs text-gray-500 mt-1 flex gap-2">
+                {previewEntries.map(([key, value]) => (
+                  <div key={key} className="truncate">
+                    <span className="font-medium">{toLabel(key)}:</span>{" "}
+                    <span className="opacity-90">{stringifyValue(value)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -298,20 +424,22 @@ export function ItemEditorComponent({
             >
               Edit
             </button>
-            <button
-              onClick={onDelete}
-              disabled={disabled}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded hover:bg-red-100 disabled:opacity-50"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {!hideDeleteAction && (
+              <button
+                onClick={onDelete}
+                disabled={disabled}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded hover:bg-red-100 disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       ) : (
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b">
             <h3 className="text-sm font-semibold text-gray-900">
-              {hasSavedIdentity ? displayTitle || String(item.id) : "Editing draft"}
+              {expandedTitle}
             </h3>
             <div className="flex items-center gap-2">
               <button
@@ -320,21 +448,31 @@ export function ItemEditorComponent({
               >
                 Collapse
               </button>
-              <button
-                onClick={onDelete}
-                disabled={disabled}
-                className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded hover:bg-red-100 disabled:opacity-50"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </button>
+              {!hideDeleteAction && (
+                <button
+                  onClick={onDelete}
+                  disabled={disabled}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded hover:bg-red-100 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              )}
             </div>
           </div>
 
           <div className="space-y-4">
             {fields
+              .filter((field) => !filteredFieldSet || filteredFieldSet.has(field.name))
               .filter((field) => !hiddenKeys.has(field.name))
-              .map((field) => renderField(field.name, item[field.name], [field.name]))}
+              .filter((field) => !isHiddenPath([field.name]))
+              .filter((field) => {
+                if (!enableLanguageEditing) return true;
+                return !isLanguageVariantKey(field.name, languageCodes);
+              })
+              .map((field) =>
+                renderField(field.name, item[field.name], [field.name], 0, item)
+              )}
           </div>
         </div>
       )}

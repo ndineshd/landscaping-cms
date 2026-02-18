@@ -7,11 +7,157 @@ import type {
   AdminConfig,
   AdminSettings,
   SiteConfig,
+  LanguageConfig,
   ThemeConfig,
   ContactConfig,
   SEOConfig,
 } from "@/types/config";
 import type { Project, Service, Translations } from "@/types/content";
+
+function normalizeLanguageCode(code: string): string {
+  return code.trim().toLowerCase();
+}
+
+function createLanguageLabel(code: string): string {
+  if (code === "en") return "English";
+  return code.toUpperCase();
+}
+
+function deepMerge(base: unknown, override: unknown): unknown {
+  if (override === undefined || override === null) {
+    return base;
+  }
+
+  if (
+    typeof base === "object" &&
+    base !== null &&
+    !Array.isArray(base) &&
+    typeof override === "object" &&
+    override !== null &&
+    !Array.isArray(override)
+  ) {
+    const merged: Record<string, unknown> = {
+      ...(base as Record<string, unknown>),
+    };
+
+    Object.entries(override as Record<string, unknown>).forEach(
+      ([key, value]) => {
+        merged[key] = deepMerge(merged[key], value);
+      }
+    );
+
+    return merged;
+  }
+
+  return override;
+}
+
+function normalizeSiteConfig(site: SiteConfig): SiteConfig {
+  const normalizedDefault = normalizeLanguageCode(site.defaultLanguage || "en");
+  const normalizedLanguages =
+    (site.languages || [])
+      .filter((lang) => Boolean(lang?.code))
+      .map((lang) => ({
+        name: lang.name?.trim() || createLanguageLabel(normalizeLanguageCode(lang.code)),
+        code: normalizeLanguageCode(lang.code),
+      })) || [];
+
+  const fromAvailable =
+    (site.availableLanguages || [])
+      .filter(Boolean)
+      .map((code) => normalizeLanguageCode(code)) || [];
+
+  const allLanguageCodes = Array.from(
+    new Set<string>([
+      "en",
+      normalizedDefault,
+      ...normalizedLanguages.map((lang) => lang.code),
+    ].filter(Boolean))
+  );
+
+  const languageMap = new Map<string, LanguageConfig>();
+  normalizedLanguages.forEach((lang) => {
+    languageMap.set(lang.code, lang);
+  });
+
+  const languages = allLanguageCodes.map((code) => {
+    return (
+      languageMap.get(code) || {
+        name: createLanguageLabel(code),
+        code,
+      }
+    );
+  });
+
+  const defaultLanguage = allLanguageCodes.includes(normalizedDefault)
+    ? normalizedDefault
+    : "en";
+  const activeLanguageCodes = Array.from(
+    new Set<string>(
+      (fromAvailable.length > 0 ? fromAvailable : allLanguageCodes).filter((code) =>
+        allLanguageCodes.includes(code)
+      )
+    )
+  );
+
+  if (!activeLanguageCodes.includes(defaultLanguage)) {
+    activeLanguageCodes.push(defaultLanguage);
+  }
+  if (!activeLanguageCodes.includes("en")) {
+    activeLanguageCodes.push("en");
+  }
+
+  return {
+    ...site,
+    defaultLanguage,
+    languages,
+    availableLanguages: activeLanguageCodes,
+  };
+}
+
+function normalizeAdminConfig(config: AdminConfig): AdminConfig {
+  return {
+    ...config,
+    site: normalizeSiteConfig(config.site),
+  };
+}
+
+function ensureTranslationsForLanguages(
+  translations: Translations,
+  languageCodes: string[],
+  fallbackLanguageCode: string
+): Translations {
+  const normalizedCodes = Array.from(
+    new Set(languageCodes.map((code) => normalizeLanguageCode(code)).filter(Boolean))
+  );
+  const normalizedFallbackCode = normalizeLanguageCode(fallbackLanguageCode);
+  const sanitizedTranslations: Translations = {};
+
+  Object.entries(translations).forEach(([code, value]) => {
+    const normalizedCode = normalizeLanguageCode(code);
+    if (!normalizedCodes.includes(normalizedCode)) return;
+    sanitizedTranslations[normalizedCode] = value;
+  });
+
+  const firstLanguageCode = Object.keys(sanitizedTranslations)[0];
+  const fallbackCode = normalizedCodes.includes(normalizedFallbackCode)
+    ? normalizedFallbackCode
+    : "en";
+  const fallbackTranslations =
+    sanitizedTranslations[fallbackCode] ||
+    sanitizedTranslations.en ||
+    (firstLanguageCode ? sanitizedTranslations[firstLanguageCode] : {});
+
+  const normalizedTranslations: Translations = {};
+  normalizedCodes.forEach((code) => {
+    normalizedTranslations[code] = deepMerge(
+      fallbackTranslations,
+      sanitizedTranslations[code]
+    ) as Translations[string];
+  });
+
+  return normalizedTranslations;
+}
 
 /**
  * Loads and caches JSON configuration files
@@ -54,7 +200,7 @@ class ConfigLoader {
 
     try {
       const config = await import("@/data/content/admin.config.json");
-      const typedConfig = config.default as AdminConfig;
+      const typedConfig = normalizeAdminConfig(config.default as AdminConfig);
       this.cache.set(cacheKey, typedConfig);
       return typedConfig;
     } catch (error) {
@@ -176,10 +322,21 @@ class ConfigLoader {
     }
 
     try {
+      const adminConfig = await this.loadAdminConfig();
       const translations = await import("@/data/content/translations.json");
-      const typedTranslations = translations.default as Translations;
-      this.cache.set(cacheKey, typedTranslations);
-      return typedTranslations;
+      const typedTranslations = translations.default as unknown as Translations;
+      const configuredLanguageCodes =
+        (adminConfig.site.availableLanguages &&
+        adminConfig.site.availableLanguages.length > 0
+          ? adminConfig.site.availableLanguages
+          : adminConfig.site.languages?.map((lang) => lang.code)) || ["en"];
+      const normalizedTranslations = ensureTranslationsForLanguages(
+        typedTranslations,
+        configuredLanguageCodes,
+        adminConfig.site.defaultLanguage || "en"
+      );
+      this.cache.set(cacheKey, normalizedTranslations);
+      return normalizedTranslations;
     } catch (error) {
       console.error("Failed to load translations:", error);
       throw new Error("Could not load translations");
@@ -192,15 +349,27 @@ class ConfigLoader {
    * @returns Translations for the specified language
    */
   async loadLanguageTranslations(languageCode: string) {
+    const normalizedLanguageCode = normalizeLanguageCode(languageCode);
     const allTranslations = await this.loadTranslations();
-    const translations = allTranslations[languageCode];
+    const adminConfig = await this.loadAdminConfig();
+    const fallbackCode = normalizeLanguageCode(
+      adminConfig.site.defaultLanguage || "en"
+    );
+    const firstLanguageCode = Object.keys(allTranslations)[0];
+    const fallbackTranslations =
+      allTranslations[fallbackCode] ||
+      allTranslations.en ||
+      (firstLanguageCode ? allTranslations[firstLanguageCode] : {});
+    const translations = allTranslations[normalizedLanguageCode];
 
     if (!translations) {
-      console.warn(`Translations for language '${languageCode}' not found`);
-      return allTranslations[Object.keys(allTranslations)[0]];
+      console.warn(
+        `Translations for language '${normalizedLanguageCode}' not found, using fallback '${fallbackCode}'`
+      );
+      return fallbackTranslations;
     }
 
-    return translations;
+    return deepMerge(fallbackTranslations, translations) as Translations[string];
   }
 
   /**
