@@ -21,7 +21,7 @@ export interface DynamicField {
  */
 export interface DataItem {
   /** Unique identifier */
-  id: number;
+  id: string | number;
   /** Dynamic field values */
   [key: string]: unknown;
 }

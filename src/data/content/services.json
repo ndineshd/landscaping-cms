@@ -20,12 +20,16 @@
         "title": "Lawn edging for a neat finish"
       }
     ],
-    "gallery": ["/images/gallery/turf-1.jpg", "/images/gallery/turf-2.jpg", "/images/gallery/turf-3.jpg"],
+    "gallery": [
+      "/images/gallery/turf-1.jpg",
+      "/images/gallery/turf-2.jpg",
+      "/images/gallery/turf-3.jpg"
+    ],
     "sortOrder": 1,
     "enabled": true
   },
   {
-    "id": "planting-landscaping",
+    "id": "planting-and-landscaping",
     "title": "Planting & Landscaping",
     "shortDescription": "Comprehensive landscaping solutions tailored to your needs, from design to maintenance.",
     "description": "Our planting and landscaping services bring your vision to life. We design and execute complete landscape transformations including flower beds, shrub borders, ornamental gardens, and themed plantings. Each project is customized to match your aesthetic preferences and site conditions.",
@@ -45,7 +49,10 @@
         "title": "Ongoing maintenance support"
       }
     ],
-    "gallery": ["/images/gallery/landscape-1.jpg", "/images/gallery/landscape-2.jpg"],
+    "gallery": [
+      "/images/gallery/landscape-1.jpg",
+      "/images/gallery/landscape-2.jpg"
+    ],
     "sortOrder": 2,
     "enabled": true
   },
@@ -70,7 +77,9 @@
         "title": "Indoor and outdoor installations"
       }
     ],
-    "gallery": ["/images/gallery/vertical-1.jpg"],
+    "gallery": [
+      "/images/gallery/vertical-1.jpg"
+    ],
     "sortOrder": 3,
     "enabled": true
   },

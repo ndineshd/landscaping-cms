@@ -24,9 +24,7 @@ import { Button } from "@/components/ui/button";
 
 import { useAdminCMS } from "@/hooks/useAdminCMS";
 import { ItemEditorComponent } from "@/components/admin/ItemEditorComponent";
-import { FieldManagerComponent } from "@/components/admin/FieldManagerComponent";
 import { CMS_FILES, getFileMetadata } from "@/lib/cms-utils";
-import type { DataItem } from "@/types/cms";
 
 /**
  * Icon map
@@ -107,15 +105,26 @@ export default function AdminDashboard() {
     fields,
     selectedFile,
     isLoading,
+    dirtyFiles,
     loadData,
     saveData,
+    saveAllData,
     updateItemField,
     addItem,
     deleteItem,
     uploadImage,
-    addField,
-    removeField,
   } = useAdminCMS();
+
+  const selectedMetadata = selectedFile
+    ? getFileMetadata(selectedFile)
+    : null;
+  const dirtyFileCount = Object.values(dirtyFiles).filter(Boolean).length;
+  const hasIdField = fields.some((field) => field.name === "id");
+  const hasIdSourceField = fields.some((field) =>
+    ["title", "name", "category"].includes(field.name)
+  );
+  const isAutoIdFile =
+    hasIdField && hasIdSourceField;
 
   // When user authenticates, auto-select and load the default site configuration
   useEffect(() => {
@@ -156,19 +165,28 @@ export default function AdminDashboard() {
     loadData(selectFileInput, password);
   };
 
+  const handleReload = () => {
+    if (!selectedFile) return;
+    loadData(selectedFile, password, true);
+  };
+
   const handleSave = () => {
     if (!selectedFile) return;
     saveData(selectedFile, password);
   };
 
-  const handleDeleteItem = (itemId: number) => {
+  const handleSaveAll = () => {
+    saveAllData(password);
+  };
+
+  const handleDeleteItem = (localItemId: string) => {
     if (window.confirm("Delete item?")) {
-      deleteItem(itemId, password);
+      deleteItem(localItemId, password);
     }
   };
 
-  const handleImageUpload = (itemId: number) => (file: File) => {
-    uploadImage(itemId, file, password);
+  const handleImageUpload = (localItemId: string) => (file: File) => {
+    uploadImage(localItemId, file, password);
   };
 
   /**
@@ -228,7 +246,7 @@ export default function AdminDashboard() {
           CMS Admin
         </div>
 
-        <div className="flex-1 p-4 space-y-2 overflow-auto">
+        <div className="flex-1 p-4 space-y-2 overflow-auto no-scrollbar">
           {Object.values(CMS_FILES).map((filePath) => {
             const metadata = getFileMetadata(filePath);
             if (!metadata) return null;
@@ -274,32 +292,29 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-500">Manage content</p>
           </div>
 
-          {selectedFile && (
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded"
-            >
-              {isLoading ? (
-                <Loader className="animate-spin h-4 w-4" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              <span className="text-sm">Save</span>
-            </button>
+          {dirtyFileCount > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700">
+                {dirtyFileCount} unsaved
+              </span>
+              <Button
+                onClick={handleSaveAll}
+                disabled={isLoading}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                {isLoading ? (
+                  <Loader className="animate-spin h-4 w-4" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save All
+              </Button>
+            </div>
           )}
         </header>
 
         {/* CONTENT */}
-        <main className="flex-1 p-6 space-y-6 overflow-y-auto">
-          {/* Field manager + controls when file is loaded */}
-          {selectedFile && (
-            <FieldManagerComponent
-              fields={fields}
-              onAddField={addField}
-              onRemoveField={removeField}
-              disabled={isLoading}
-            />
-          )}
+        <main className="flex-1 p-6 space-y-6 overflow-y-auto no-scrollbar">
           {/* FILE GRID (mobile only) */}
           {!selectedFile && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:hidden">
@@ -331,33 +346,95 @@ export default function AdminDashboard() {
 
           {/* ITEMS */}
           {selectedFile && (
-            <div className="bg-white rounded-xl shadow-sm">
-              <div className="sticky top-0 z-10 bg-white p-4 flex justify-between items-center border-b">
-                <h2 className="text-base font-medium">Items ({items.length})</h2>
-                <Button
-                  onClick={addItem}
-                  className="inline-flex items-center gap-2 rounded-[5px] text-center px-3 py-1"
-                >
-                  <Plus className="h-4 w-4" />
-                  + Add item
-                </Button>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="sticky top-0 z-10 bg-white/95 backdrop-blur p-4 border-b space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900">
+                      {selectedMetadata?.label || "Data"} ({items.length})
+                    </h2>
+                    <p className="text-sm text-slate-500">
+                      {selectedMetadata?.description || "Update and save your content changes"}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handleReload}
+                      disabled={isLoading}
+                      className="text-slate-700"
+                    >
+                      {isLoading ? (
+                        <Loader className="animate-spin h-4 w-4" />
+                      ) : (
+                        <Loader className="h-4 w-4" />
+                      )}
+                      Reload
+                    </Button>
+                    <Button
+                      onClick={addItem}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-2 rounded-[6px] text-center"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Item
+                    </Button>
+                    <Button
+                      onClick={handleSave}
+                      disabled={isLoading}
+                      className="inline-flex items-center gap-2 rounded-[6px] text-center bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {isLoading ? (
+                        <Loader className="animate-spin h-4 w-4" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Save Current
+                    </Button>
+                  </div>
+                </div>
+                {isAutoIdFile && (
+                  <p className="text-xs text-slate-500">
+                    IDs are auto-generated globally as lowercase category-title (or title/name).
+                  </p>
+                )}
               </div>
 
-              <div className="p-4 space-y-4 max-h-[420px] overflow-y-auto">
-                {items.map((item) => (
-                  <div key={item.id} className="border p-3 rounded-md bg-gray-50">
-                    <ItemEditorComponent
-                      item={item}
-                      fields={fields}
-                      password={password}
-                      onFieldChange={(f, v) =>
-                        updateItemField(item.id as number, f, v)
-                      }
-                      onImageUpload={handleImageUpload(item.id as number)}
-                      onDelete={() => handleDeleteItem(item.id as number)}
-                    />
+              <div className="p-4 space-y-4 max-h-[calc(100vh-240px)] overflow-y-auto no-scrollbar">
+                {items.length === 0 ? (
+                  <div className="border border-dashed border-slate-300 rounded-lg p-8 text-center bg-slate-50">
+                    <p className="text-sm text-slate-600 mb-4">
+                      No records found for this file yet.
+                    </p>
+                    <Button onClick={addItem} disabled={isLoading}>
+                      <Plus className="h-4 w-4" />
+                      Create First Item
+                    </Button>
                   </div>
-                ))}
+                ) : (
+                  items.map((item) => {
+                    const localItemId =
+                      (item.__localId as string) || String(item.id);
+
+                    return (
+                      <div key={localItemId} className="border p-3 rounded-md bg-gray-50">
+                      <ItemEditorComponent
+                        item={item}
+                        fields={fields}
+                        password={password}
+                        disabled={isLoading}
+                        autoIdFromContent={isAutoIdFile}
+                        onFieldChange={(f, v) =>
+                          updateItemField(localItemId, f, v)
+                        }
+                        onImageUpload={handleImageUpload(localItemId)}
+                        onDelete={() => handleDeleteItem(localItemId)}
+                      />
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

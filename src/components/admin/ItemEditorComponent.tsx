@@ -24,6 +24,8 @@ interface ItemEditorComponentProps {
   onImageUpload: (file: File) => void;
   /** Callback to delete item */
   onDelete: () => void;
+  /** If true, id is auto-generated from content fields */
+  autoIdFromContent?: boolean;
   /** Whether component is disabled */
   disabled?: boolean;
 }
@@ -38,6 +40,7 @@ export function ItemEditorComponent({
   onFieldChange,
   onImageUpload,
   onDelete,
+  autoIdFromContent,
   disabled,
 }: Readonly<ItemEditorComponentProps>) {
   const [showImageUpload, setShowImageUpload] = useState(false);
@@ -45,15 +48,30 @@ export function ItemEditorComponent({
     null
   );
   const [expanded, setExpanded] = useState(false);
+  const displayTitle = stringifyValue(item.title) || stringifyValue(item.name);
+  const hasSavedIdentity =
+    typeof item.id === "number" ||
+    (typeof item.id === "string" && item.id.trim().length > 0);
+  const previewFields = fields
+    .filter((field) => !(autoIdFromContent && field.name === "id"))
+    .slice(0, 2);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg">
       {!expanded ? (
         <div className="flex items-center justify-between p-3">
           <div className="min-w-0">
-            <div className="text-sm font-medium text-gray-900 truncate">Item #{item.id}</div>
+            {hasSavedIdentity ? (
+              <div className="text-sm font-medium text-gray-900 truncate">
+                {displayTitle || String(item.id)}
+              </div>
+            ) : (
+              <div className="text-xs font-medium text-amber-600 uppercase tracking-wide">
+                Draft item
+              </div>
+            )}
             <div className="text-xs text-gray-500 mt-1 flex gap-2">
-              {fields.slice(0, 2).map((f) => (
+              {previewFields.map((f) => (
                 <div key={f.name} className="truncate">
                   <span className="font-medium">{f.label}:</span>{" "}
                   <span className="opacity-90">{stringifyValue(item[f.name])}</span>
@@ -81,7 +99,9 @@ export function ItemEditorComponent({
       ) : (
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b">
-            <h3 className="text-sm font-semibold text-gray-900">Item #{item.id}</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              {hasSavedIdentity ? displayTitle || String(item.id) : "Editing draft"}
+            </h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setExpanded(false)}
@@ -102,6 +122,10 @@ export function ItemEditorComponent({
 
           <div className="space-y-4">
             {fields.map((field) => {
+              if (autoIdFromContent && field.name === "id") {
+                return null;
+              }
+
               const value = item[field.name];
               const isImageField = field.type === "image";
 

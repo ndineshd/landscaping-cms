@@ -19,3 +19,15 @@ body {
 button:disabled {
   @apply opacity-50 cursor-not-allowed;
 }
+
+/* Keep scroll behavior but hide visible scrollbars */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}

@@ -37,7 +37,7 @@
     "enabled": true
   },
   {
-    "id": "commercial-landscape",
+    "id": "commercial-office-landscape",
     "title": "Commercial Office Landscape",
     "description": "Modern landscaping for a commercial office building featuring drought-resistant plants and minimalist design.",
     "location": "Chennai, Tamil Nadu",
@@ -54,7 +54,7 @@
     "enabled": true
   },
   {
-    "id": "vertical-garden-apartment",
+    "id": "residential-apartment-vertical-garden",
     "title": "Apartment Vertical Garden",
     "description": "Space-saving vertical garden installation in an apartment balcony, bringing greenery to urban living.",
     "location": "Chennai, Tamil Nadu",
