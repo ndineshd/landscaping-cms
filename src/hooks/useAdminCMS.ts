@@ -101,6 +101,41 @@ function normalizeItems(items: DataItem[]): { items: DataItem[]; idsChanged: boo
   return { items: normalizedItems, idsChanged };
 }
 
+function setValueAtPath(
+  source: DataItem,
+  path: (string | number)[],
+  value: unknown
+): DataItem {
+  if (path.length === 0) return source;
+
+  const rootCopy: Record<string, unknown> = { ...source };
+  let current: Record<string, unknown> = rootCopy;
+
+  for (let index = 0; index < path.length - 1; index++) {
+    const segment = path[index] as string | number;
+    const nextSegment = path[index + 1];
+    const currentValue = current[segment as keyof typeof current];
+
+    if (Array.isArray(currentValue)) {
+      current[segment as keyof typeof current] = [...currentValue];
+    } else if (currentValue && typeof currentValue === "object") {
+      current[segment as keyof typeof current] = {
+        ...(currentValue as Record<string, unknown>),
+      };
+    } else {
+      current[segment as keyof typeof current] =
+        typeof nextSegment === "number" ? [] : {};
+    }
+
+    current = current[segment as keyof typeof current] as Record<string, unknown>;
+  }
+
+  const lastSegment = path[path.length - 1];
+  current[lastSegment as keyof typeof current] = value;
+
+  return rootCopy as DataItem;
+}
+
 function detectFields(items: DataItem[]): DynamicField[] {
   const extractedFields = extractFieldsFromItems(items).filter(
     (field) => field !== LOCAL_ITEM_ID_KEY
@@ -134,6 +169,7 @@ export function useAdminCMS() {
   const [fieldsByFile, setFieldsByFile] = useState<Record<string, DynamicField[]>>({});
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
   const [isArrayFileByPath, setIsArrayFileByPath] = useState<Record<string, boolean>>({});
+  const isCurrentFileArray = selectedFile ? isArrayFileByPath[selectedFile] !== false : true;
 
   const persistFile = useCallback(
     async (filePath: string, fileItems: DataItem[], password: string): Promise<boolean> => {
@@ -322,20 +358,23 @@ export function useAdminCMS() {
   /**
    * Update item field value
    * @param localItemId - Stable local item key
-   * @param fieldName - Field name
+   * @param fieldPath - Field path
    * @param value - New value
    */
   const updateItemField = useCallback(
-    (localItemId: string, fieldName: string, value: unknown) => {
+    (localItemId: string, fieldPath: (string | number)[], value: unknown) => {
       if (!selectedFile) return;
 
       setItems((prevItems: DataItem[]) => {
         const updatedItems = prevItems.map((item: DataItem) => {
           if (item[LOCAL_ITEM_ID_KEY] !== localItemId) return item;
 
-          let updatedItem: DataItem = { ...item, [fieldName]: value };
+          let updatedItem: DataItem = setValueAtPath(item, fieldPath, value);
+          const topField = fieldPath[0];
           const shouldRecomputeId =
-            fieldName === "title" || fieldName === "name" || fieldName === "category";
+            fieldPath.length === 1 &&
+            typeof topField === "string" &&
+            (topField === "title" || topField === "name" || topField === "category");
 
           if (shouldRecomputeId && hasAutoIdSource(updatedItem)) {
             const nextId = buildAutoId(updatedItem);
@@ -488,7 +527,7 @@ export function useAdminCMS() {
           const imageField = fields.find((f: DynamicField) => f.type === "image");
 
           if (imageField) {
-            updateItemField(localItemId, imageField.name, imagePath);
+            updateItemField(localItemId, [imageField.name], imagePath);
             toast.success("Image uploaded successfully");
           }
         };
@@ -605,6 +644,7 @@ export function useAdminCMS() {
     fields,
     selectedFile,
     isLoading,
+    isCurrentFileArray,
     dirtyFiles,
     loadData,
     saveData,

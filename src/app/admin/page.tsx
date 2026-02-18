@@ -105,6 +105,7 @@ export default function AdminDashboard() {
     fields,
     selectedFile,
     isLoading,
+    isCurrentFileArray,
     dirtyFiles,
     loadData,
     saveData,
@@ -374,7 +375,8 @@ export default function AdminDashboard() {
                     </Button>
                     <Button
                       onClick={addItem}
-                      disabled={isLoading}
+                      disabled={isLoading || !isCurrentFileArray}
+                      title={isCurrentFileArray ? undefined : "This file uses a single object structure"}
                       className="inline-flex items-center gap-2 rounded-[6px] text-center"
                     >
                       <Plus className="h-4 w-4" />
@@ -407,7 +409,15 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-600 mb-4">
                       No records found for this file yet.
                     </p>
-                    <Button onClick={addItem} disabled={isLoading}>
+                    <Button
+                      onClick={addItem}
+                      disabled={isLoading || !isCurrentFileArray}
+                      title={
+                        isCurrentFileArray
+                          ? undefined
+                          : "This file uses a single object structure"
+                      }
+                    >
                       <Plus className="h-4 w-4" />
                       Create First Item
                     </Button>

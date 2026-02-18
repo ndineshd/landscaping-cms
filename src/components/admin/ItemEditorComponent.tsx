@@ -1,13 +1,12 @@
 /**
  * Item Editor Component
- * Displays and edits item fields
+ * Displays and edits item fields (supports nested objects and arrays)
  */
 
 "use client";
 
 import { useState } from "react";
-import { Trash2, Upload } from "lucide-react";
-import { ImageUploadComponent } from "./ImageUploadComponent";
+import { Plus, Trash2 } from "lucide-react";
 import type { DataItem, DynamicField } from "@/types/cms";
 import { stringifyValue } from "@/lib/cms-utils";
 
@@ -16,11 +15,11 @@ interface ItemEditorComponentProps {
   item: DataItem;
   /** Available fields */
   fields: DynamicField[];
-  /** Admin password */
+  /** Admin password (kept for API compatibility) */
   password: string;
   /** Callback when field changes */
-  onFieldChange: (fieldName: string, value: unknown) => void;
-  /** Callback to upload image */
+  onFieldChange: (fieldPath: (string | number)[], value: unknown) => void;
+  /** Callback to upload image (kept for API compatibility) */
   onImageUpload: (file: File) => void;
   /** Callback to delete item */
   onDelete: () => void;
@@ -30,31 +29,243 @@ interface ItemEditorComponentProps {
   disabled?: boolean;
 }
 
+function toLabel(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function createDefaultFromSample(sample: unknown): unknown {
+  if (Array.isArray(sample)) return [];
+  if (isRecord(sample)) {
+    return Object.fromEntries(
+      Object.entries(sample).map(([key, value]) => [key, createDefaultFromSample(value)])
+    );
+  }
+  if (typeof sample === "number") return 0;
+  if (typeof sample === "boolean") return false;
+  return "";
+}
+
+function shouldUseTextarea(fieldName: string, value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    (value.length > 100 ||
+      fieldName.toLowerCase().includes("description") ||
+      fieldName.toLowerCase().includes("message"))
+  );
+}
+
 /**
  * Item Editor Component
  */
 export function ItemEditorComponent({
   item,
   fields,
-  password,
   onFieldChange,
-  onImageUpload,
   onDelete,
   autoIdFromContent,
   disabled,
 }: Readonly<ItemEditorComponentProps>) {
-  const [showImageUpload, setShowImageUpload] = useState(false);
-  const [selectedImageField, setSelectedImageField] = useState<string | null>(
-    null
-  );
   const [expanded, setExpanded] = useState(false);
+  const hiddenKeys = new Set<string>(["__localId"]);
+  if (autoIdFromContent) hiddenKeys.add("id");
+
   const displayTitle = stringifyValue(item.title) || stringifyValue(item.name);
   const hasSavedIdentity =
     typeof item.id === "number" ||
     (typeof item.id === "string" && item.id.trim().length > 0);
-  const previewFields = fields
-    .filter((field) => !(autoIdFromContent && field.name === "id"))
+
+  const previewEntries = Object.entries(item)
+    .filter(([key, value]) => !hiddenKeys.has(key) && !isRecord(value) && !Array.isArray(value))
     .slice(0, 2);
+
+  const handleArrayAdd = (
+    fieldPath: (string | number)[],
+    fieldName: string,
+    currentArray: unknown[]
+  ) => {
+    const firstValue = currentArray[0];
+    let newValue: unknown;
+
+    if (firstValue !== undefined) {
+      newValue = createDefaultFromSample(firstValue);
+    } else if (fieldName.toLowerCase().includes("feature")) {
+      newValue = { title: "" };
+    } else {
+      newValue = "";
+    }
+
+    onFieldChange(fieldPath, [...currentArray, newValue]);
+  };
+
+  const handleArrayRemove = (
+    fieldPath: (string | number)[],
+    currentArray: unknown[],
+    removeIndex: number
+  ) => {
+    onFieldChange(
+      fieldPath,
+      currentArray.filter((_, index) => index !== removeIndex)
+    );
+  };
+
+  const renderScalarField = (
+    fieldName: string,
+    value: unknown,
+    fieldPath: (string | number)[]
+  ) => {
+    if (typeof value === "boolean") {
+      return (
+        <input
+          type="checkbox"
+          checked={value}
+          onChange={(e) => onFieldChange(fieldPath, e.target.checked)}
+          disabled={disabled}
+          className="h-4 w-4"
+        />
+      );
+    }
+
+    if (typeof value === "number") {
+      return (
+        <input
+          type="number"
+          value={Number.isFinite(value) ? value : 0}
+          onChange={(e) => onFieldChange(fieldPath, Number(e.target.value))}
+          disabled={disabled}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+        />
+      );
+    }
+
+    if (shouldUseTextarea(fieldName, value)) {
+      return (
+        <textarea
+          value={stringifyValue(value)}
+          onChange={(e) => onFieldChange(fieldPath, e.target.value)}
+          disabled={disabled}
+          rows={4}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 resize-y"
+        />
+      );
+    }
+
+    return (
+      <input
+        type="text"
+        value={stringifyValue(value)}
+        onChange={(e) => onFieldChange(fieldPath, e.target.value)}
+        disabled={disabled}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+      />
+    );
+  };
+
+  const renderField = (
+    fieldName: string,
+    value: unknown,
+    fieldPath: (string | number)[],
+    depth = 0
+  ): JSX.Element | null => {
+    if (hiddenKeys.has(fieldName)) return null;
+
+    if (Array.isArray(value)) {
+      return (
+        <div
+          key={fieldPath.join(".")}
+          className="space-y-3 p-3 rounded-lg border border-slate-200 bg-slate-50"
+        >
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-slate-800">{toLabel(fieldName)}</h4>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => handleArrayAdd(fieldPath, fieldName, value)}
+              className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add
+            </button>
+          </div>
+
+          {value.length === 0 ? (
+            <p className="text-xs text-slate-500">No items yet.</p>
+          ) : (
+            value.map((entry, index) => {
+              const itemPath = [...fieldPath, index];
+              return (
+                <div
+                  key={`${fieldPath.join(".")}-${index}`}
+                  className="rounded-md border border-slate-200 bg-white p-3 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-slate-600">
+                      {toLabel(fieldName)} #{index + 1}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => handleArrayRemove(fieldPath, value, index)}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  </div>
+
+                  {isRecord(entry) ? (
+                    <div className="space-y-3">
+                      {Object.entries(entry).map(([childKey, childValue]) =>
+                        renderField(childKey, childValue, [...itemPath, childKey], depth + 1)
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-gray-700">
+                        Value
+                      </label>
+                      {renderScalarField(fieldName, entry, itemPath)}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      );
+    }
+
+    if (isRecord(value)) {
+      return (
+        <div
+          key={fieldPath.join(".")}
+          className={`space-y-3 p-3 rounded-lg border border-slate-200 ${
+            depth === 0 ? "bg-slate-50" : "bg-white"
+          }`}
+        >
+          <h4 className="text-sm font-semibold text-slate-800">{toLabel(fieldName)}</h4>
+          <div className="space-y-3">
+            {Object.entries(value).map(([childKey, childValue]) =>
+              renderField(childKey, childValue, [...fieldPath, childKey], depth + 1)
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={fieldPath.join(".")} className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">{toLabel(fieldName)}</label>
+        {renderScalarField(fieldName, value, fieldPath)}
+      </div>
+    );
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg">
@@ -71,10 +282,10 @@ export function ItemEditorComponent({
               </div>
             )}
             <div className="text-xs text-gray-500 mt-1 flex gap-2">
-              {previewFields.map((f) => (
-                <div key={f.name} className="truncate">
-                  <span className="font-medium">{f.label}:</span>{" "}
-                  <span className="opacity-90">{stringifyValue(item[f.name])}</span>
+              {previewEntries.map(([key, value]) => (
+                <div key={key} className="truncate">
+                  <span className="font-medium">{toLabel(key)}:</span>{" "}
+                  <span className="opacity-90">{stringifyValue(value)}</span>
                 </div>
               ))}
             </div>
@@ -121,117 +332,9 @@ export function ItemEditorComponent({
           </div>
 
           <div className="space-y-4">
-            {fields.map((field) => {
-              if (autoIdFromContent && field.name === "id") {
-                return null;
-              }
-
-              const value = item[field.name];
-              const isImageField = field.type === "image";
-
-              return (
-                <div key={field.name} className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    {field.label || field.name}
-                  </label>
-
-                  {isImageField ? (
-                    // Image Field
-                    <div className="space-y-2">
-                      {typeof value === "string" && value && (
-                        <div className="relative group">
-                          <img
-                            src={value}
-                            alt={field.label}
-                            className="w-full h-40 object-cover rounded-lg"
-                          />
-                          <button
-                            onClick={() => {
-                              setSelectedImageField(field.name);
-                              setShowImageUpload(true);
-                            }}
-                            disabled={disabled}
-                            className="absolute inset-0 opacity-0 group-hover:opacity-100 bg-black/50 rounded-lg flex items-center justify-center transition-opacity"
-                          >
-                            <Upload className="h-6 w-6 text-white" />
-                          </button>
-                        </div>
-                      )}
-
-                      {typeof value !== "string" || (typeof value === "string" && !value) ? (
-                        <button
-                          onClick={() => {
-                            setSelectedImageField(field.name);
-                            setShowImageUpload(true);
-                          }}
-                          disabled={disabled || !password}
-                          className="w-full px-4 py-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50"
-                        >
-                          <Upload className="h-4 w-4 inline mr-2" />
-                          Upload Image
-                        </button>
-                      ) : null}
-
-                      {showImageUpload && selectedImageField === field.name && (
-                        <ImageUploadComponent
-                          currentImage={typeof value === "string" ? value : undefined}
-                          password={password}
-                          onUpload={(file) => {
-                            onImageUpload(file);
-                            setShowImageUpload(false);
-                          }}
-                          disabled={disabled}
-                        />
-                      )}
-                    </div>
-                  ) : field.type === "boolean" ? (
-                    // Boolean Field
-                    <input
-                      type="checkbox"
-                      checked={value === true}
-                      onChange={(e) => onFieldChange(field.name, e.target.checked)}
-                      disabled={disabled}
-                      className="h-4 w-4"
-                    />
-                  ) : field.type === "number" ? (
-                    // Number Field
-                    <input
-                      type="number"
-                      value={typeof value === "number" ? value : (value === undefined || value === null ? "" : String(value))}
-                      onChange={(e) =>
-                        onFieldChange(field.name, parseFloat(e.target.value))
-                      }
-                      disabled={disabled}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  ) : field.type === "array" ? (
-                    // Array Field
-                    <input
-                      type="text"
-                      value={stringifyValue(value)}
-                      onChange={(e) =>
-                        onFieldChange(
-                          field.name,
-                          e.target.value.split(",").map((item) => item.trim())
-                        )
-                      }
-                      placeholder="Comma-separated values"
-                      disabled={disabled}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  ) : (
-                    // String Field (default)
-                    <input
-                      type="text"
-                      value={stringifyValue(value)}
-                      onChange={(e) => onFieldChange(field.name, e.target.value)}
-                      disabled={disabled}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    />
-                  )}
-                </div>
-              );
-            })}
+            {fields
+              .filter((field) => !hiddenKeys.has(field.name))
+              .map((field) => renderField(field.name, item[field.name], [field.name]))}
           </div>
         </div>
       )}
