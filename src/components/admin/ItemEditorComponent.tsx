@@ -92,6 +92,37 @@ function shouldUseTextarea(fieldName: string, value: unknown): boolean {
   );
 }
 
+interface SelectOption {
+  label: string;
+  value: string;
+}
+
+const FIELD_SELECT_OPTIONS: Record<string, SelectOption[]> = {
+  "site.logo.displayMode": [
+    { value: "generated-with-name", label: "Generated + Company Name" },
+    { value: "image-with-name", label: "Image + Company Name" },
+    { value: "image-only", label: "Image Only" },
+  ],
+  "site.logo.type": [
+    { value: "text", label: "Generated" },
+    { value: "image", label: "Image" },
+  ],
+  "site.logo.imageObjectFit": [
+    { value: "contain", label: "Contain" },
+    { value: "cover", label: "Cover" },
+  ],
+  "site.logo.imageBlendMode": [
+    { value: "normal", label: "Normal" },
+    { value: "multiply", label: "Multiply" },
+    { value: "screen", label: "Screen" },
+    { value: "overlay", label: "Overlay" },
+    { value: "darken", label: "Darken" },
+    { value: "lighten", label: "Lighten" },
+    { value: "color", label: "Color" },
+    { value: "luminosity", label: "Luminosity" },
+  ],
+};
+
 const IMAGE_FIELD_KEYWORDS = [
   "image",
   "photo",
@@ -170,6 +201,13 @@ function createUploadInputId(fieldPath: (string | number)[]): string {
     .join("-")
     .replace(/[^a-zA-Z0-9-]/g, "-")
     .toLowerCase()}`;
+}
+
+function getFieldSelectOptions(fieldPath: (string | number)[]): SelectOption[] | null {
+  const pathKey = fieldPath
+    .filter((segment): segment is string => typeof segment === "string")
+    .join(".");
+  return FIELD_SELECT_OPTIONS[pathKey] || null;
 }
 
 /**
@@ -395,6 +433,31 @@ export function ItemEditorComponent({
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         />
       );
+    }
+
+    if (typeof value === "string") {
+      const selectOptions = getFieldSelectOptions(fieldPath);
+      if (selectOptions) {
+        const hasCurrentValue = selectOptions.some((option) => option.value === value);
+        const options = hasCurrentValue
+          ? selectOptions
+          : [{ value, label: value || "Current Value" }, ...selectOptions];
+
+        return (
+          <select
+            value={value}
+            onChange={(e) => onFieldChange(fieldPath, e.target.value)}
+            disabled={disabled}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        );
+      }
     }
 
     if (shouldUseTextarea(fieldName, value)) {

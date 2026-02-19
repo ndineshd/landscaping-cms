@@ -29,6 +29,10 @@ export interface LogoConfig {
     | "lighten"
     | "color"
     | "luminosity";
+  /** Logo image width in pixels */
+  imageWidth?: number;
+  /** Logo image height in pixels */
+  imageHeight?: number;
 }
 
 /**

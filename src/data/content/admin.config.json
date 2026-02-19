@@ -5,13 +5,15 @@
     "tagline": "Professional landscaping services",
     "description": "Transforming outdoor spaces into living works of art. Chennai's trusted experts in terraces, gardens, and sustainable landscaping since 2010.",
     "logo": {
-      "displayMode": "image-with-name",
+      "displayMode": "image-only",
       "type": "image",
       "imageUrl": "/uploads/site/site/img-1771472600648.jpeg",
       "text": "GW",
       "showText": false,
       "imageObjectFit": "contain",
-      "imageBlendMode": "multiply"
+      "imageBlendMode": "multiply",
+      "imageWidth": "400",
+      "imageHeight": "70"
     },
     "defaultLanguage": "en",
     "languages": [

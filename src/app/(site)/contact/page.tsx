@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { ExternalLink, Mail, Phone } from "lucide-react";
 
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
 import { SectionContainer } from "@/components/site/SectionContainer";
@@ -130,6 +130,24 @@ export default async function ContactPage() {
             <div>
               <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Visit Us</h2>
               <div className="group relative mt-6 overflow-hidden rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)]">
+                <div className="flex items-start justify-between gap-4 border-b border-[var(--site-color-border)] bg-white/95 px-4 py-3">
+                  <div>
+                    <p className="site-heading text-sm font-semibold text-[var(--site-color-foreground)]">
+                      {adminConfig.site.companyName}
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-[var(--site-color-muted-foreground)]">
+                      {adminConfig.contact.address}
+                    </p>
+                  </div>
+                  <Link
+                    className="shrink-0 rounded-[5px] border border-[var(--site-color-border)] px-3 py-1.5 text-xs font-medium text-[var(--site-color-foreground)] transition-colors hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
+                    href={directionsHref}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    View Large Map
+                  </Link>
+                </div>
                 <iframe
                   aria-label={`${locationCardTitle} map preview`}
                   className="h-[420px] w-full transition-[filter,transform] duration-500 [filter:grayscale(1)_saturate(0.35)_contrast(1.03)] group-hover:[filter:grayscale(0)_saturate(1)] group-hover:scale-[1.01]"
@@ -138,22 +156,6 @@ export default async function ContactPage() {
                   src={mapEmbedUrl}
                   title={`${locationCardTitle} map`}
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent opacity-55 transition-opacity duration-500 group-hover:opacity-25" />
-                <div className="pointer-events-none absolute inset-0 grid place-items-center p-4 md:p-8">
-                  <div className="pointer-events-auto w-full max-w-[295px] rounded-[5px] bg-white/95 p-5 text-center shadow-md backdrop-blur-[1px]">
-                    <MapPin className="mx-auto h-8 w-8 text-[var(--site-color-primary)]" />
-                    <h3 className="site-heading mt-3 text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">{locationCardTitle}</h3>
-                    <p className="mt-2 text-base text-[var(--site-color-muted-foreground)] md:text-lg">{adminConfig.contact.address}</p>
-                    <Link
-                      className="mt-5 inline-flex h-11 items-center justify-center rounded-[5px] border border-[var(--site-color-foreground)] px-5 text-sm font-medium text-[var(--site-color-foreground)] transition-colors hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
-                      href={directionsHref}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Get Directions
-                    </Link>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

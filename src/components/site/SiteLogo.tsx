@@ -37,11 +37,37 @@ function resolveDisplayMode(logo: LogoConfig): "generated-with-name" | "image-wi
   return "generated-with-name";
 }
 
+function toLogoSize(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.min(Math.max(Math.round(value), 24), 120);
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.min(Math.max(Math.round(parsed), 24), 120);
+    }
+  }
+  return null;
+}
+
+function getBadgeSizeStyle(logo: LogoConfig): CSSProperties {
+  const width = toLogoSize(logo.imageWidth) || 36;
+  const height = toLogoSize(logo.imageHeight) || width;
+  return {
+    width,
+    height,
+  };
+}
+
 function renderLogoBadge(logo: LogoConfig, logoText: string, siteName: string) {
   const hasImage = Boolean(logo.imageUrl && logo.imageUrl.trim().length > 0);
+  const badgeStyle = getBadgeSizeStyle(logo);
   if (!hasImage) {
     return (
-      <span className="grid h-9 w-9 place-items-center rounded-[5px] bg-[var(--site-color-primary)] text-xs font-bold uppercase text-white">
+      <span
+        className="grid place-items-center rounded-[5px] bg-[var(--site-color-primary)] text-xs font-bold uppercase text-white"
+        style={badgeStyle}
+      >
         {logoText}
       </span>
     );
@@ -53,7 +79,10 @@ function renderLogoBadge(logo: LogoConfig, logoText: string, siteName: string) {
   };
 
   return (
-    <span className="relative inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-[5px] bg-[var(--site-color-accent)] p-1.5">
+    <span
+      className="relative inline-flex items-center justify-center overflow-hidden rounded-[5px] bg-[var(--site-color-accent)] p-1.5"
+      style={badgeStyle}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         alt={`${siteName} logo`}
