@@ -91,8 +91,8 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
               <Icon className="h-7 w-7" />
             </span>
             <div>
-              <h1 className="site-heading text-4xl font-semibold text-[var(--site-color-foreground)] md:text-6xl">{service.title}</h1>
-              <p className="mt-3 max-w-3xl text-lg text-[var(--site-color-muted-foreground)]">{service.shortDescription}</p>
+              <h1 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-5xl">{service.title}</h1>
+              <p className="mt-3 max-w-3xl text-base text-[var(--site-color-muted-foreground)] md:text-lg">{service.shortDescription}</p>
             </div>
           </div>
         </SectionContainer>
@@ -103,17 +103,17 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
           <div className="grid gap-10 lg:grid-cols-[1.6fr_0.74fr]">
             <div className="space-y-10">
               <div className="overflow-hidden rounded-2xl border border-[var(--site-color-border)] bg-[var(--site-color-muted)]">
-                <div className="h-64 bg-cover bg-center sm:h-80 lg:h-[460px]" style={{ backgroundImage: `url("${service.image}")` }} />
+                <div className="h-64 bg-cover bg-center sm:h-80 lg:h-[420px]" style={{ backgroundImage: `url("${service.image}")` }} />
               </div>
 
               <section>
-                <h2 className="site-heading text-4xl font-semibold text-[var(--site-color-foreground)]">About this Service</h2>
-                <p className="mt-4 text-lg leading-relaxed text-[var(--site-color-muted-foreground)]">{service.description}</p>
+                <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-4xl">About this Service</h2>
+                <p className="mt-4 text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-lg">{service.description}</p>
               </section>
 
               {service.features.length > 0 ? (
                 <section>
-                  <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)]">Key Features</h2>
+                  <h2 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Key Features</h2>
                   <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                     {service.features.map((feature, index) => (
                       <li
@@ -130,7 +130,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
 
               {galleryItems.length > 0 ? (
                 <section>
-                  <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)]">Gallery</h2>
+                  <h2 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Gallery</h2>
                   <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
                     {galleryItems.map((image, index) => (
                       <div className="overflow-hidden rounded-xl border border-[var(--site-color-border)] bg-[var(--site-color-muted)]" key={`${service.id}-gallery-${index}`}>
@@ -149,7 +149,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
 
             <aside className="space-y-4 lg:sticky lg:top-28 lg:self-start">
               <div className="rounded-2xl border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-6">
-                <h3 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)]">Need this service?</h3>
+                <h3 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)]">Need this service?</h3>
                 <p className="mt-3 text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">
                   Get in touch with us today for a free consultation and quote.
                 </p>
@@ -169,7 +169,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
 
               {otherServices.length > 0 ? (
                 <div className="rounded-2xl border border-[var(--site-color-border)] bg-white p-6">
-                  <h3 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)]">Other Services</h3>
+                  <h3 className="site-heading text-xl font-semibold text-[var(--site-color-foreground)]">Other Services</h3>
                   <ul className="mt-4 space-y-3">
                     {otherServices.map((item) => (
                       <li key={item.id}>

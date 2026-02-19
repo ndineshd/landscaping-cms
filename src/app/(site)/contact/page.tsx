@@ -34,12 +34,12 @@ export default async function ContactPage() {
 
   return (
     <main>
-      <section className="border-b border-[var(--site-color-border)] bg-[var(--site-color-muted)] pb-16 pt-32 text-center md:pb-20 md:pt-36">
+      <section className="border-b border-[var(--site-color-border)] bg-[var(--site-color-muted)] pb-14 pt-32 text-center md:pb-16 md:pt-36">
         <SectionContainer>
-          <h1 className="site-heading text-5xl font-semibold text-[var(--site-color-foreground)] md:text-7xl">
+          <h1 className="site-heading text-4xl font-semibold text-[var(--site-color-foreground)] md:text-4xl">
             {contactCopy.title || "Contact Us"}
           </h1>
-          <p className="mx-auto mt-4 max-w-4xl text-lg leading-relaxed text-[var(--site-color-muted-foreground)] md:text-[2rem]">
+          <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-lg">
             {contactCopy.subtitle ||
               "Let's build your dream garden! Reach out to us for quotes, consultations, or any questions."}
           </p>
@@ -50,50 +50,50 @@ export default async function ContactPage() {
         <SectionContainer>
           <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
             <div>
-              <h2 className="site-heading text-5xl font-semibold text-[var(--site-color-foreground)] md:text-6xl">Get in Touch</h2>
+              <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Get in Touch</h2>
               <div className="mt-6 space-y-4">
                 <a
-                  className="flex items-center gap-5 rounded-2xl border border-[var(--site-color-border)] bg-white px-5 py-6 transition-colors hover:border-[var(--site-color-primary)]"
+                  className="flex items-center gap-4 rounded-2xl border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
                   href={phoneHref}
                 >
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
-                    <Phone className="h-7 w-7" />
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
+                    <Phone className="h-6 w-6" />
                   </span>
                   <span>
                     <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.callUs || "Call Us"}</span>
-                    <span className="site-heading block text-4xl font-semibold text-[var(--site-color-foreground)] md:text-[2.5rem]">
+                    <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
                       {adminConfig.contact.phone}
                     </span>
                   </span>
                 </a>
 
                 <a
-                  className="flex items-center gap-5 rounded-2xl border border-[var(--site-color-border)] bg-white px-5 py-6 transition-colors hover:border-[var(--site-color-primary)]"
+                  className="flex items-center gap-4 rounded-2xl border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
                   href={whatsappHref}
                   rel="noreferrer"
                   target="_blank"
                 >
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--site-color-accent)] text-[#25d366]">
-                    <MessageCircleMore className="h-7 w-7" />
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--site-color-accent)] text-[#25d366]">
+                    <MessageCircleMore className="h-6 w-6" />
                   </span>
                   <span>
                     <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.chatOnWhatsApp || "Chat on WhatsApp"}</span>
-                    <span className="site-heading block text-4xl font-semibold text-[var(--site-color-foreground)] md:text-[2.5rem]">
+                    <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
                       Start Conversation
                     </span>
                   </span>
                 </a>
 
                 <a
-                  className="flex items-center gap-5 rounded-2xl border border-[var(--site-color-border)] bg-white px-5 py-6 transition-colors hover:border-[var(--site-color-primary)]"
+                  className="flex items-center gap-4 rounded-2xl border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
                   href={emailHref}
                 >
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
-                    <Mail className="h-7 w-7" />
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
+                    <Mail className="h-6 w-6" />
                   </span>
                   <span>
                     <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.emailUs || "Email Us"}</span>
-                    <span className="site-heading block break-all text-4xl font-semibold text-[var(--site-color-foreground)] md:text-[2.5rem]">
+                    <span className="site-heading block break-all text-xl font-semibold text-[var(--site-color-foreground)] md:text-xl">
                       {adminConfig.contact.email}
                     </span>
                   </span>
@@ -102,7 +102,7 @@ export default async function ContactPage() {
 
               {social ? (
                 <a
-                  className="mt-6 inline-flex h-20 w-full items-center justify-center gap-3 rounded-full bg-[var(--site-color-primary)] px-7 text-2xl font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)] md:text-4xl"
+                  className="mt-6 inline-flex h-[52px] w-full items-center justify-center gap-3 rounded-full bg-[var(--site-color-primary)] px-7 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)] md:text-lg"
                   href={social.url}
                   rel="noreferrer"
                   target="_blank"
@@ -114,7 +114,7 @@ export default async function ContactPage() {
             </div>
 
             <div>
-              <h2 className="site-heading text-5xl font-semibold text-[var(--site-color-foreground)] md:text-6xl">Visit Us</h2>
+              <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Visit Us</h2>
               <div className="relative mt-6 overflow-hidden rounded-3xl border border-[var(--site-color-border)] bg-[#e5e7e5] p-4 md:p-8">
                 <div
                   aria-hidden="true"
@@ -124,13 +124,13 @@ export default async function ContactPage() {
                       "radial-gradient(circle at 12% 25%, #bfc4bf 0 8%, transparent 9%), radial-gradient(circle at 32% 60%, #c7cbc7 0 9%, transparent 10%), radial-gradient(circle at 72% 24%, #c0c4c0 0 9%, transparent 10%), radial-gradient(circle at 86% 68%, #c8ccc8 0 8%, transparent 9%), linear-gradient(135deg, #d9ddd9 0%, #e8ebe8 40%, #dfe3df 100%)",
                   }}
                 />
-                <div className="relative grid min-h-[420px] place-items-center">
-                  <div className="w-full max-w-[295px] rounded-2xl bg-white p-6 text-center shadow-md">
+                <div className="relative grid min-h-[360px] place-items-center">
+                  <div className="w-full max-w-[295px] rounded-2xl bg-white p-5 text-center shadow-md">
                     <MapPin className="mx-auto h-8 w-8 text-[var(--site-color-primary)]" />
-                    <h3 className="site-heading mt-3 text-4xl font-semibold text-[var(--site-color-foreground)] md:text-5xl">{locationCardTitle}</h3>
-                    <p className="mt-2 text-lg text-[var(--site-color-muted-foreground)] md:text-xl">{adminConfig.contact.address}</p>
+                    <h3 className="site-heading mt-3 text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">{locationCardTitle}</h3>
+                    <p className="mt-2 text-base text-[var(--site-color-muted-foreground)] md:text-lg">{adminConfig.contact.address}</p>
                     <Link
-                      className="mt-5 inline-flex h-12 items-center justify-center rounded-lg border border-[var(--site-color-foreground)] px-6 text-base font-medium text-[var(--site-color-foreground)] transition-colors hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
+                      className="mt-5 inline-flex h-11 items-center justify-center rounded-lg border border-[var(--site-color-foreground)] px-5 text-sm font-medium text-[var(--site-color-foreground)] transition-colors hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
                       href={directionsHref}
                       rel="noreferrer"
                       target="_blank"

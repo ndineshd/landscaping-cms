@@ -40,7 +40,7 @@ function ProjectCard({ imagePath, title }: ProjectCardProps) {
         style={{ backgroundImage: `url("${imagePath}")` }}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
-      <h3 className="site-heading absolute bottom-5 left-5 right-5 text-3xl font-semibold text-white">{title}</h3>
+      <h3 className="site-heading absolute bottom-5 left-5 right-5 text-2xl font-semibold text-white">{title}</h3>
     </article>
   );
 }

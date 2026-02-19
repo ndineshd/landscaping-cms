@@ -29,14 +29,14 @@ export function AboutSection({
     <section className="bg-[#edf2ee] py-20 md:py-24">
       <SectionContainer>
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-          <div className="h-[320px] overflow-hidden rounded-3xl bg-[var(--site-color-muted)] md:h-[430px]">
+          <div className="h-[300px] overflow-hidden rounded-3xl bg-[var(--site-color-muted)] md:h-[400px]">
             <div
               className="h-full w-full bg-cover bg-center"
               style={{ backgroundImage: `url("${imagePath}")` }}
             />
           </div>
           <div>
-            <h2 className="site-heading text-4xl font-semibold leading-tight text-[var(--site-color-foreground)] md:text-5xl">
+            <h2 className="site-heading text-3xl font-semibold leading-tight text-[var(--site-color-foreground)] md:text-4xl">
               {title}
             </h2>
             <p className="mt-5 text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-lg">
@@ -62,4 +62,3 @@ export function AboutSection({
     </section>
   );
 }
-

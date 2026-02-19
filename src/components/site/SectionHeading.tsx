@@ -15,7 +15,7 @@ export function SectionHeading({ alignment = "center", className, subtitle, titl
 
   return (
     <div className={cn(isCentered ? "mx-auto max-w-3xl text-center" : "max-w-3xl text-left", className)}>
-      <h2 className="site-heading text-3xl font-semibold tracking-tight text-[var(--site-color-foreground)] md:text-5xl">
+      <h2 className="site-heading text-3xl font-semibold tracking-tight text-[var(--site-color-foreground)] md:text-4xl">
         {title}
       </h2>
       <div className={cn("mt-4 h-1 w-20 rounded-full bg-[var(--site-color-primary)]", isCentered ? "mx-auto" : "mx-0")} />

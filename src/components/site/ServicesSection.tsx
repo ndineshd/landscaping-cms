@@ -48,7 +48,7 @@ function ServiceCard({ description, iconName, imagePath, title, viewDetailsLabel
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-[var(--site-color-border)] bg-white shadow-sm transition-all duration-300 hover:translate-y-[-6px] hover:shadow-xl">
-      <div className="relative h-52 bg-[var(--site-color-muted)]">
+      <div className="relative h-48 bg-[var(--site-color-muted)]">
         <div
           className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
           style={{ backgroundImage: `url("${imagePath}")` }}
@@ -58,7 +58,7 @@ function ServiceCard({ description, iconName, imagePath, title, viewDetailsLabel
         </span>
       </div>
       <div className="space-y-4 p-5">
-        <h3 className="site-heading text-2xl font-semibold leading-tight text-[var(--site-color-foreground)]">{title}</h3>
+        <h3 className="site-heading text-xl font-semibold leading-tight text-[var(--site-color-foreground)]">{title}</h3>
         <p className="min-h-16 text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">{description}</p>
         <Link
           className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--site-color-primary)] transition-transform duration-300 group-hover:translate-x-0.5"
@@ -113,4 +113,3 @@ export function ServicesSection({
     </section>
   );
 }
-

@@ -71,7 +71,7 @@ function ServiceCard({ service, viewDetailsLabel }: ServiceCardProps) {
 
   return (
     <article className="group overflow-hidden rounded-2xl border border-[var(--site-color-border)] bg-white shadow-sm">
-      <div className="relative h-52 bg-[var(--site-color-muted)] md:h-56">
+      <div className="relative h-44 bg-[var(--site-color-muted)] md:h-48">
         <div
           className="h-full w-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
           style={imageStyle}
@@ -80,17 +80,17 @@ function ServiceCard({ service, viewDetailsLabel }: ServiceCardProps) {
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <div className="space-y-3 px-5 pb-5 pt-4">
-        <h2 className="site-heading text-[1.65rem] font-semibold leading-tight text-[var(--site-color-foreground)]">
+      <div className="space-y-2.5 px-4 pb-4 pt-3.5">
+        <h2 className="site-heading text-xl font-semibold leading-tight text-[var(--site-color-foreground)]">
           {service.title}
         </h2>
-        <p className="min-h-16 text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">
+        <p className="min-h-[54px] text-[13px] leading-relaxed text-[var(--site-color-muted-foreground)] md:text-sm">
           {service.shortDescription}
         </p>
       </div>
       <div className="border-t border-[var(--site-color-border)]">
         <Link
-          className="flex items-center justify-between px-5 py-4 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--site-color-primary)]"
+          className="flex items-center justify-between px-4 py-3.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--site-color-primary)]"
           href={`/services/${service.id}`}
         >
           <span>{viewDetailsLabel}</span>
@@ -128,10 +128,10 @@ export function ServicesCatalogPage({
     <>
       <section className="bg-[var(--site-color-muted)] pb-12 pt-32 md:pb-14 md:pt-36">
         <SectionContainer className="text-center">
-          <h1 className="site-heading text-4xl font-semibold text-[var(--site-color-foreground)] md:text-6xl">
+          <h1 className="site-heading text-4xl font-semibold text-[var(--site-color-foreground)] md:text-5xl">
             {title}
           </h1>
-          <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-lg">
+          <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-base">
             {subtitle}
           </p>
           <div className="mx-auto mt-8 max-w-[560px]">
