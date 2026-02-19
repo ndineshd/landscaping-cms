@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   Lock,
+  Menu,
   Save,
   Plus,
   Loader,
@@ -25,6 +26,7 @@ import {
   CircleDot,
   CloudUpload,
   Languages,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,10 +66,6 @@ interface PublishSummary {
   successCount: number;
   failedCount: number;
   publishedFiles: string[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -156,9 +154,9 @@ export default function AdminDashboard() {
   const [newLanguageName, setNewLanguageName] = useState("");
   const [newLanguageCode, setNewLanguageCode] = useState("");
   const [isLanguageSettingsExpanded, setIsLanguageSettingsExpanded] = useState(false);
-  const [isSiteDetailsExpanded, setIsSiteDetailsExpanded] = useState(false);
   const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(null);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const {
     items,
@@ -224,10 +222,6 @@ export default function AdminDashboard() {
     (typeof siteConfigItem.__localId === "string"
       ? (siteConfigItem.__localId as string)
       : String(siteConfigItem.id ?? ""));
-  const siteConfigData = isRecord(siteConfigItem) ? siteConfigItem : null;
-  const siteDetails = siteConfigData && isRecord(siteConfigData.site)
-    ? (siteConfigData.site as Record<string, unknown>)
-    : null;
   const siteConfigHiddenFieldPaths = [
     "site.defaultLanguage",
     "site.languages",
@@ -246,7 +240,9 @@ export default function AdminDashboard() {
         key: field.name,
         label: field.label || field.name,
       })),
-  ];
+  ].filter((section, index, array) =>
+    index === array.findIndex((candidate) => candidate.key === section.key)
+  );
 
   const getLanguageName = (languageCode: string) =>
     languageOptions.find((language) => language.code === languageCode)?.name ||
@@ -270,6 +266,7 @@ export default function AdminDashboard() {
 
   const handleSelectFile = (filePath: string) => {
     setSelectFileInput(filePath);
+    setIsMobileSidebarOpen(false);
     // If authenticated and password provided, load immediately
     if (isAuthenticated && password) {
       loadData(filePath, password);
@@ -284,6 +281,7 @@ export default function AdminDashboard() {
     setIsAuthenticated(false);
     setPassword("");
     setSelectFileInput("");
+    setIsMobileSidebarOpen(false);
   };
 
   const handleLoad = () => {
@@ -373,11 +371,6 @@ export default function AdminDashboard() {
         : defaultLanguageCode;
 
     updateLanguageConfig(nextLanguages, nextActiveCodes, nextDefault);
-  };
-
-  const handleSiteDetailsChange = (field: string, value: string) => {
-    if (!siteConfigLocalId) return;
-    updateItemField(siteConfigLocalId, ["site", field], value);
   };
 
   /**
@@ -479,18 +472,111 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
+      {/* MOBILE SIDEBAR DRAWER */}
+      {isMobileSidebarOpen && (
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-white border-r flex flex-col shadow-xl">
+            <div className="p-4 border-b flex items-center justify-between">
+              <span className="font-semibold text-base">CMS Admin</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="h-8 w-8"
+                aria-label="Close menu"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex-1 p-4 space-y-2 overflow-auto no-scrollbar">
+              {Object.values(CMS_FILES).map((filePath) => {
+                const metadata = getFileMetadata(filePath);
+                if (!metadata) return null;
+
+                const Icon =
+                  ICON_MAP[metadata.icon as keyof typeof ICON_MAP];
+
+                return (
+                  <button
+                    key={filePath}
+                    onClick={() => handleSelectFile(filePath)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg ${
+                      (selectFileInput === filePath || selectedFile === filePath)
+                        ? "bg-blue-50 text-blue-600"
+                        : "hover:bg-gray-100"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{metadata.label}</span>
+                    {dirtyFiles[filePath] && !stagedFiles[filePath] && (
+                      <span className="ml-auto inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    )}
+                    {dirtyFiles[filePath] && stagedFiles[filePath] && (
+                      <CheckCircle2 className="ml-auto h-4 w-4 text-emerald-600" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-3 py-2 bg-red-100 text-red-600 rounded-lg"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
       {/* MAIN */}
       <div className="flex min-h-screen md:pl-64">
         <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* HEADER */}
-        <header className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex justify-between items-center">
-          <div>
-            <h1 className="font-semibold text-lg">Dashboard</h1>
-            <p className="text-sm text-gray-500">Manage content</p>
+        <header className="sticky top-0 z-20 bg-white border-b px-4 py-3 flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
+          <div className="w-full flex items-start justify-between md:w-auto">
+            <div>
+              <h1 className="font-semibold text-lg">Dashboard</h1>
+              <p className="text-sm text-gray-500">Manage content</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 md:hidden"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 border rounded-lg px-2 py-1">
+          <div className="w-full flex flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <Button
+              onClick={handleSaveAll}
+              disabled={isLoading || stagedFileCount === 0}
+              className="order-1 w-full rounded-[5px] bg-indigo-600 hover:bg-indigo-700 sm:order-4 sm:w-auto"
+            >
+              {isLoading ? (
+                <Loader className="animate-spin h-4 w-4" />
+              ) : (
+                <CloudUpload className="h-4 w-4" />
+              )}
+              Global Save Changes ({stagedFileCount})
+            </Button>
+
+            <div className="order-2 flex items-center justify-between gap-2 border rounded-lg px-2 py-1 sm:order-1 sm:justify-start">
               <span className="text-xs text-slate-500">Language</span>
               <select
                 value={activeLanguageCode}
@@ -505,28 +591,20 @@ export default function AdminDashboard() {
               </select>
             </div>
 
-            {draftFileCount > 0 && (
-              <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700">
-                {draftFileCount} draft
-              </span>
+            {(draftFileCount > 0 || stagedFileCount > 0) && (
+              <div className="order-3 flex items-center gap-2 sm:order-2">
+                {draftFileCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700">
+                    {draftFileCount} draft
+                  </span>
+                )}
+                {stagedFileCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">
+                    {stagedFileCount} queued
+                  </span>
+                )}
+              </div>
             )}
-            {stagedFileCount > 0 && (
-              <span className="text-xs px-2 py-1 rounded bg-emerald-100 text-emerald-700">
-                {stagedFileCount} queued
-              </span>
-            )}
-            <Button
-              onClick={handleSaveAll}
-              disabled={isLoading || stagedFileCount === 0}
-              className="rounded-[5px] bg-indigo-600 hover:bg-indigo-700"
-            >
-              {isLoading ? (
-                <Loader className="animate-spin h-4 w-4" />
-              ) : (
-                <CloudUpload className="h-4 w-4" />
-              )}
-              Global Save Changes ({stagedFileCount})
-            </Button>
           </div>
         </header>
 
@@ -633,7 +711,7 @@ export default function AdminDashboard() {
 
               {isSiteConfigFile && (
                 <div className="p-4 border-b bg-slate-50/70">
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -781,88 +859,6 @@ export default function AdminDashboard() {
                             </Button>
                           </div>
                         </>
-                      )}
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                            <Settings className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-slate-900">
-                              Site Details
-                            </h3>
-                            <p className="text-xs text-slate-500">
-                              Basic identity fields used across the website.
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setIsSiteDetailsExpanded((prevValue) => !prevValue)
-                          }
-                          className="h-8 px-2 text-xs"
-                        >
-                          {isSiteDetailsExpanded ? "Collapse" : "Expand"}
-                          {isSiteDetailsExpanded ? (
-                            <ChevronUp className="h-3.5 w-3.5" />
-                          ) : (
-                            <ChevronDown className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                      </div>
-                      {isSiteDetailsExpanded && (
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">Site Name</label>
-                            <input
-                              type="text"
-                              value={String(siteDetails?.name ?? "")}
-                              onChange={(e) => handleSiteDetailsChange("name", e.target.value)}
-                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">
-                              Company Name
-                            </label>
-                            <input
-                              type="text"
-                              value={String(siteDetails?.companyName ?? "")}
-                              onChange={(e) =>
-                                handleSiteDetailsChange("companyName", e.target.value)
-                              }
-                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">Tagline</label>
-                            <input
-                              type="text"
-                              value={String(siteDetails?.tagline ?? "")}
-                              onChange={(e) => handleSiteDetailsChange("tagline", e.target.value)}
-                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">
-                              Description
-                            </label>
-                            <textarea
-                              value={String(siteDetails?.description ?? "")}
-                              onChange={(e) =>
-                                handleSiteDetailsChange("description", e.target.value)
-                              }
-                              rows={4}
-                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm resize-y"
-                            />
-                          </div>
-                        </div>
                       )}
                     </div>
                   </div>

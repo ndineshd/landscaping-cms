@@ -6,7 +6,7 @@
     "description": "Transforming outdoor spaces into living works of art. Chennai's trusted experts in terraces, gardens, and sustainable landscaping since 2010.",
     "logo": {
       "type": "image",
-      "imageUrl": "/images/logo.svg",
+      "imageUrl": "/uploads/site/site/img-1771472600648.jpeg",
       "text": "GW",
       "showText": true
     },
@@ -80,7 +80,7 @@
     "ctaText": "View Services",
     "ctaLink": "#services",
     "images": {
-      "desktop": "/images/hero-desktop.jpg",
+      "desktop": "/uploads/site/site/img-1771472600648.jpeg",
       "mobile": "/images/hero-mobile.jpg"
     }
   },
