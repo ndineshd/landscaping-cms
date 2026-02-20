@@ -2,6 +2,7 @@ import { ExternalLink, Mail, Phone } from "lucide-react";
 
 import { ContactLocationMap } from "@/components/site/ContactLocationMap";
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
+import { ScrollReveal } from "@/components/site/ScrollReveal";
 import { SectionContainer } from "@/components/site/SectionContainer";
 import { WhatsAppIcon } from "@/components/site/WhatsAppIcon";
 import { getSiteCommonData } from "@/lib/site-data";
@@ -99,13 +100,17 @@ export default async function ContactPage() {
           }}
         />
         <SectionContainer className="relative">
-          <h1 className="site-heading text-4xl font-semibold text-white md:text-4xl">
-            {contactCopy.title || "Contact Us"}
-          </h1>
-          <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-white/85 md:text-lg">
-            {contactCopy.subtitle ||
-              "Let's build your dream garden! Reach out to us for quotes, consultations, or any questions."}
-          </p>
+          <ScrollReveal>
+            <h1 className="site-heading text-4xl font-semibold text-white md:text-4xl">
+              {contactCopy.title || "Contact Us"}
+            </h1>
+          </ScrollReveal>
+          <ScrollReveal delayMs={80}>
+            <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-white/85 md:text-lg">
+              {contactCopy.subtitle ||
+                "Let's build your dream garden! Reach out to us for quotes, consultations, or any questions."}
+            </p>
+          </ScrollReveal>
         </SectionContainer>
       </section>
 
@@ -113,72 +118,86 @@ export default async function ContactPage() {
         <SectionContainer>
           <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
             <div>
-              <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Get in Touch</h2>
+              <ScrollReveal>
+                <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Get in Touch</h2>
+              </ScrollReveal>
               <div className="mt-6 space-y-4">
-                <a
-                  className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
-                  href={phoneHref}
-                >
-                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
-                    <Phone className="h-6 w-6" />
-                  </span>
-                  <span>
-                    <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.callUs || "Call Us"}</span>
-                    <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
-                      {adminConfig.contact.phone}
+                <ScrollReveal delayMs={50}>
+                  <a
+                    className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
+                    href={phoneHref}
+                  >
+                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
+                      <Phone className="h-6 w-6" />
                     </span>
-                  </span>
-                </a>
+                    <span>
+                      <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.callUs || "Call Us"}</span>
+                      <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
+                        {adminConfig.contact.phone}
+                      </span>
+                    </span>
+                  </a>
+                </ScrollReveal>
 
-                <a
-                  className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
-                  href={whatsappHref}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white shadow-sm">
-                    <WhatsAppIcon className="h-6 w-6" />
-                  </span>
-                  <span>
-                    <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.chatOnWhatsApp || "Chat on WhatsApp"}</span>
-                    <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
-                      Start Conversation
+                <ScrollReveal delayMs={110}>
+                  <a
+                    className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
+                    href={whatsappHref}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white shadow-sm">
+                      <WhatsAppIcon className="h-6 w-6" />
                     </span>
-                  </span>
-                </a>
+                    <span>
+                      <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.chatOnWhatsApp || "Chat on WhatsApp"}</span>
+                      <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
+                        Start Conversation
+                      </span>
+                    </span>
+                  </a>
+                </ScrollReveal>
 
-                <a
-                  className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
-                  href={emailHref}
-                >
-                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
-                    <Mail className="h-6 w-6" />
-                  </span>
-                  <span>
-                    <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.emailUs || "Email Us"}</span>
-                    <span className="site-heading block break-all text-xl font-semibold text-[var(--site-color-foreground)] md:text-xl">
-                      {adminConfig.contact.email}
+                <ScrollReveal delayMs={170}>
+                  <a
+                    className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
+                    href={emailHref}
+                  >
+                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
+                      <Mail className="h-6 w-6" />
                     </span>
-                  </span>
-                </a>
+                    <span>
+                      <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.emailUs || "Email Us"}</span>
+                      <span className="site-heading block break-all text-xl font-semibold text-[var(--site-color-foreground)] md:text-xl">
+                        {adminConfig.contact.email}
+                      </span>
+                    </span>
+                  </a>
+                </ScrollReveal>
               </div>
 
               {social ? (
-                <a
-                  className="mt-6 inline-flex h-[52px] w-full items-center justify-center gap-3 rounded-[5px] bg-[var(--site-color-primary)] px-7 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)] md:text-lg"
-                  href={social.url}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <span>{contactCopy.followUs || "Follow us on Instagram"}</span>
-                  <ExternalLink className="h-5 w-5" />
-                </a>
+                <ScrollReveal delayMs={220}>
+                  <a
+                    className="mt-6 inline-flex h-[52px] w-full items-center justify-center gap-3 rounded-[5px] bg-[var(--site-color-primary)] px-7 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)] md:text-lg"
+                    href={social.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <span>{contactCopy.followUs || "Follow us on Instagram"}</span>
+                    <ExternalLink className="h-5 w-5" />
+                  </a>
+                </ScrollReveal>
               ) : null}
             </div>
 
             <div>
-              <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Visit Us</h2>
-              <ContactLocationMap mapEmbedUrl={mapEmbedUrl} title={locationCardTitle} />
+              <ScrollReveal>
+                <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Visit Us</h2>
+              </ScrollReveal>
+              <ScrollReveal delayMs={90} variant="zoom">
+                <ContactLocationMap mapEmbedUrl={mapEmbedUrl} title={locationCardTitle} />
+              </ScrollReveal>
             </div>
           </div>
         </SectionContainer>

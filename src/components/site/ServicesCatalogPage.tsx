@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 
 import type { Service } from "@/types/content";
 
+import { ScrollReveal } from "./ScrollReveal";
 import { ServiceCard } from "./ServiceCard";
 import { SectionContainer } from "./SectionContainer";
 
@@ -54,14 +55,18 @@ export function ServicesCatalogPage({
           }}
         />
         <SectionContainer className="relative text-center">
-          <h1 className="site-heading text-4xl font-semibold text-white md:text-5xl">
-            {title}
-          </h1>
-          <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-white/85 md:text-base">
-            {subtitle}
-          </p>
+          <ScrollReveal>
+            <h1 className="site-heading text-4xl font-semibold text-white md:text-5xl">
+              {title}
+            </h1>
+          </ScrollReveal>
+          <ScrollReveal delayMs={80}>
+            <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-white/85 md:text-base">
+              {subtitle}
+            </p>
+          </ScrollReveal>
           {shouldShowSearch ? (
-            <div className="mx-auto mt-8 max-w-[560px]">
+            <ScrollReveal className="mx-auto mt-8 max-w-[560px]" delayMs={130} variant="zoom">
               <label className="sr-only" htmlFor="services-search">
                 {searchPlaceholder}
               </label>
@@ -76,7 +81,7 @@ export function ServicesCatalogPage({
                   value={query}
                 />
               </div>
-            </div>
+            </ScrollReveal>
           ) : null}
         </SectionContainer>
       </section>
@@ -85,14 +90,18 @@ export function ServicesCatalogPage({
         <SectionContainer>
           {filteredServices.length > 0 ? (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredServices.map((service) => (
-                <ServiceCard key={service.id} service={service} viewDetailsLabel={viewDetailsLabel} />
+              {filteredServices.map((service, index) => (
+                <ScrollReveal className="h-full" delayMs={(index % 6) * 65} key={service.id} variant="zoom">
+                  <ServiceCard service={service} viewDetailsLabel={viewDetailsLabel} />
+                </ScrollReveal>
               ))}
             </div>
           ) : (
-            <div className="rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-8 text-center text-sm text-[var(--site-color-muted-foreground)]">
-              {noResultsLabel}
-            </div>
+            <ScrollReveal>
+              <div className="rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-8 text-center text-sm text-[var(--site-color-muted-foreground)]">
+                {noResultsLabel}
+              </div>
+            </ScrollReveal>
           )}
         </SectionContainer>
       </section>

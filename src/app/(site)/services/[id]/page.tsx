@@ -17,6 +17,7 @@ import type { LucideIcon } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
+import { ScrollReveal } from "@/components/site/ScrollReveal";
 import { SectionContainer } from "@/components/site/SectionContainer";
 import { ServiceQuoteButton } from "@/components/site/ServiceQuoteButton";
 import { getActiveServices } from "@/lib/config-loader";
@@ -108,84 +109,96 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
         <SectionContainer>
           <div className="grid gap-10 lg:grid-cols-[1.6fr_0.74fr]">
             <div className="space-y-10">
-              <div className="overflow-hidden rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)]">
-                <div className="h-64 bg-cover bg-center sm:h-80 lg:h-[420px]" style={{ backgroundImage: `url("${service.image}")` }} />
-              </div>
+              <ScrollReveal variant="zoom">
+                <div className="overflow-hidden rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)]">
+                  <div className="h-64 bg-cover bg-center sm:h-80 lg:h-[420px]" style={{ backgroundImage: `url("${service.image}")` }} />
+                </div>
+              </ScrollReveal>
 
-              <section>
-                <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-4xl">About this Service</h2>
-                <p className="mt-4 text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-lg">{service.description}</p>
-              </section>
+              <ScrollReveal delayMs={70}>
+                <section>
+                  <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-4xl">About this Service</h2>
+                  <p className="mt-4 text-base leading-relaxed text-[var(--site-color-muted-foreground)] md:text-lg">{service.description}</p>
+                </section>
+              </ScrollReveal>
 
               {service.features.length > 0 ? (
-                <section>
-                  <h2 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Key Features</h2>
-                  <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {service.features.map((feature, index) => (
-                      <li
-                        className="flex items-start gap-3 rounded-[5px] border border-[var(--site-color-border)] bg-white px-4 py-4 text-[15px] text-[var(--site-color-foreground)]"
-                        key={`${service.id}-feature-${index}`}
-                      >
-                        <Check className="mt-[2px] h-4 w-4 shrink-0 text-[var(--site-color-primary)]" />
-                        <span>{resolveFeatureText(feature)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
+                <ScrollReveal delayMs={90}>
+                  <section>
+                    <h2 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Key Features</h2>
+                    <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {service.features.map((feature, index) => (
+                        <li
+                          className="flex items-start gap-3 rounded-[5px] border border-[var(--site-color-border)] bg-white px-4 py-4 text-[15px] text-[var(--site-color-foreground)]"
+                          key={`${service.id}-feature-${index}`}
+                        >
+                          <Check className="mt-[2px] h-4 w-4 shrink-0 text-[var(--site-color-primary)]" />
+                          <span>{resolveFeatureText(feature)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </ScrollReveal>
               ) : null}
 
               {galleryItems.length > 0 ? (
-                <section>
-                  <h2 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Gallery</h2>
-                  <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-                    {galleryItems.map((image, index) => (
-                      <div className="overflow-hidden rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)]" key={`${service.id}-gallery-${index}`}>
-                        <div
-                          aria-label={`${service.title} gallery image ${index + 1}`}
-                          className="h-40 bg-cover bg-center sm:h-44 md:h-48"
-                          role="img"
-                          style={{ backgroundImage: `url("${image}")` }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                <ScrollReveal delayMs={110}>
+                  <section>
+                    <h2 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">Gallery</h2>
+                    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+                      {galleryItems.map((image, index) => (
+                        <div className="overflow-hidden rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)]" key={`${service.id}-gallery-${index}`}>
+                          <div
+                            aria-label={`${service.title} gallery image ${index + 1}`}
+                            className="h-40 bg-cover bg-center sm:h-44 md:h-48"
+                            role="img"
+                            style={{ backgroundImage: `url("${image}")` }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </ScrollReveal>
               ) : null}
             </div>
 
             <aside className="space-y-4 lg:sticky lg:top-28 lg:self-start">
-              <div className="rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-6">
-                <h3 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)]">Need this service?</h3>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">
-                  Get in touch with us today for a free consultation and quote.
-                </p>
-                <ServiceQuoteButton
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[5px] bg-[var(--site-color-primary)] px-6 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)]"
-                  number={siteData.adminConfig.contact.whatsapp.number}
-                  serviceTitle={service.title}
-                />
-                <p className="mt-4 text-center text-sm text-[var(--site-color-muted-foreground)]">
-                  Or call us directly at
-                  <br />
-                  <a className="font-medium text-[var(--site-color-foreground)]" href={`tel:${siteData.adminConfig.contact.phone.replace(/[^\d+]/g, "")}`}>
-                    {siteData.adminConfig.contact.phone}
-                  </a>
-                </p>
-              </div>
+              <ScrollReveal delayMs={70} variant="right">
+                <div className="rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-6">
+                  <h3 className="site-heading text-2xl font-semibold text-[var(--site-color-foreground)]">Need this service?</h3>
+                  <p className="mt-3 text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">
+                    Get in touch with us today for a free consultation and quote.
+                  </p>
+                  <ServiceQuoteButton
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[5px] bg-[var(--site-color-primary)] px-6 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)]"
+                    number={siteData.adminConfig.contact.whatsapp.number}
+                    serviceTitle={service.title}
+                  />
+                  <p className="mt-4 text-center text-sm text-[var(--site-color-muted-foreground)]">
+                    Or call us directly at
+                    <br />
+                    <a className="font-medium text-[var(--site-color-foreground)]" href={`tel:${siteData.adminConfig.contact.phone.replace(/[^\d+]/g, "")}`}>
+                      {siteData.adminConfig.contact.phone}
+                    </a>
+                  </p>
+                </div>
+              </ScrollReveal>
 
               {otherServices.length > 0 ? (
-                <div className="rounded-[5px] border border-[var(--site-color-border)] bg-white p-6">
-                  <h3 className="site-heading text-xl font-semibold text-[var(--site-color-foreground)]">Other Services</h3>
-                  <ul className="mt-4 space-y-3">
-                    {otherServices.map((item) => (
-                      <li key={item.id}>
-                        <Link className="text-base text-[var(--site-color-muted-foreground)] transition-colors hover:text-[var(--site-color-primary)]" href={`/services/${item.id}`}>
-                          {item.title}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                <ScrollReveal delayMs={120} variant="right">
+                  <div className="rounded-[5px] border border-[var(--site-color-border)] bg-white p-6">
+                    <h3 className="site-heading text-xl font-semibold text-[var(--site-color-foreground)]">Other Services</h3>
+                    <ul className="mt-4 space-y-3">
+                      {otherServices.map((item) => (
+                        <li key={item.id}>
+                          <Link className="text-base text-[var(--site-color-muted-foreground)] transition-colors hover:text-[var(--site-color-primary)]" href={`/services/${item.id}`}>
+                            {item.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </ScrollReveal>
               ) : null}
             </aside>
           </div>

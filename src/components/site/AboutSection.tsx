@@ -3,6 +3,7 @@ import { CheckCircle2 } from "lucide-react";
 
 import type { AboutFeature } from "@/types/config";
 
+import { ScrollReveal } from "./ScrollReveal";
 import { SectionContainer } from "./SectionContainer";
 
 interface AboutSectionProps {
@@ -29,13 +30,13 @@ export function AboutSection({
     <section className="bg-[#edf2ee] py-20 md:py-24">
       <SectionContainer>
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
-          <div className="h-[300px] overflow-hidden rounded-[5px] bg-[var(--site-color-muted)] md:h-[400px]">
+          <ScrollReveal className="h-[300px] overflow-hidden rounded-[5px] bg-[var(--site-color-muted)] md:h-[400px]" variant="left">
             <div
-              className="h-full w-full bg-cover bg-center"
+              className="h-full w-full bg-cover bg-center transition-transform duration-700 hover:scale-105"
               style={{ backgroundImage: `url("${imagePath}")` }}
             />
-          </div>
-          <div>
+          </ScrollReveal>
+          <ScrollReveal delayMs={80} variant="right">
             <h2 className="site-heading text-3xl font-semibold leading-tight text-[var(--site-color-foreground)] md:text-4xl">
               {title}
             </h2>
@@ -56,7 +57,7 @@ export function AboutSection({
             >
               {ctaLabel}
             </Link>
-          </div>
+          </ScrollReveal>
         </div>
       </SectionContainer>
     </section>
