@@ -136,7 +136,7 @@ export default async function ContactPage() {
                   rel="noreferrer"
                   target="_blank"
                 >
-                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-accent)] text-[#25d366]">
+                  <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25d366] text-white shadow-sm">
                     <WhatsAppIcon className="h-6 w-6" />
                   </span>
                   <span>
