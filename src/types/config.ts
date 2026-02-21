@@ -33,6 +33,10 @@ export interface LogoConfig {
   imageWidth?: number;
   /** Logo image height in pixels */
   imageHeight?: number;
+  /** Logo image width on small screens in pixels */
+  imageMobileWidth?: number;
+  /** Logo image height on small screens in pixels */
+  imageMobileHeight?: number;
 }
 
 /**

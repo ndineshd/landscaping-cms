@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader, Plus, Save } from "lucide-react";
+import { Loader, Plus, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SelectedFileToolbarProps {
@@ -11,9 +11,11 @@ interface SelectedFileToolbarProps {
   canAddTopLevelItems: boolean;
   selectedFileHasDraftChanges: boolean;
   selectedFileIsQueued: boolean;
+  selectedFileHasPendingChanges: boolean;
   onReload: () => void;
   onAddItem: () => void;
   onSaveCurrent: () => void;
+  onResetCurrent: () => void;
 }
 
 export function SelectedFileToolbar({
@@ -24,9 +26,11 @@ export function SelectedFileToolbar({
   canAddTopLevelItems,
   selectedFileHasDraftChanges,
   selectedFileIsQueued,
+  selectedFileHasPendingChanges,
   onReload,
   onAddItem,
   onSaveCurrent,
+  onResetCurrent,
 }: SelectedFileToolbarProps) {
   return (
     <div className="sticky top-0 z-10 bg-white/95 backdrop-blur p-4 border-b space-y-4">
@@ -47,6 +51,15 @@ export function SelectedFileToolbar({
           >
             {isLoading ? <Loader className="animate-spin h-4 w-4" /> : <Loader className="h-4 w-4" />}
             Reload
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onResetCurrent}
+            disabled={isLoading || !selectedFileHasPendingChanges}
+            className="rounded-[5px] text-slate-700"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset Local Changes
           </Button>
           {canAddTopLevelItems && (
             <Button

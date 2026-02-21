@@ -135,6 +135,7 @@ const IMAGE_FIELD_KEYWORDS = [
   "ogimage",
 ];
 const IMAGE_PARENT_KEYWORDS = ["images", "gallery", "photos", "banners"];
+const IMAGE_METADATA_KEYWORDS = ["width", "height", "blend", "objectfit", "fit", "ratio"];
 
 function isImagePath(value: string): boolean {
   const trimmedValue = value.trim();
@@ -176,11 +177,28 @@ function pathLooksLikeImage(fieldPath: (string | number)[]): boolean {
   );
 }
 
+function isImageMetadataField(fieldPath: (string | number)[]): boolean {
+  const stringSegments = fieldPath.filter(
+    (segment): segment is string => typeof segment === "string"
+  );
+  if (stringSegments.length === 0) return false;
+
+  const leafSegment = stringSegments[stringSegments.length - 1]
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+  return IMAGE_METADATA_KEYWORDS.some((keyword) => leafSegment.includes(keyword));
+}
+
 function isImageLikeField(
   fieldName: string,
   value: unknown,
   fieldPath: (string | number)[]
 ): boolean {
+  if (isImageMetadataField(fieldPath)) {
+    return false;
+  }
+
   if (typeof value === "string" && isImagePath(value)) {
     return true;
   }

@@ -1129,7 +1129,7 @@ export function useAdminCMS() {
         .map(([filePath]) => filePath);
 
       if (stagedFilePaths.length === 0) {
-        toast.info("No local saves pending publish");
+        toast.info("No queued local saves pending publish");
         return null;
       }
 

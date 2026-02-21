@@ -27,6 +27,18 @@ body {
   font-family: var(--site-font-heading);
 }
 
+.site-logo-badge {
+  width: var(--logo-width-desktop, 36px);
+  height: var(--logo-height-desktop, 36px);
+}
+
+@media (max-width: 640px) {
+  .site-logo-badge {
+    width: var(--logo-width-mobile, var(--logo-width-desktop, 36px));
+    height: var(--logo-height-mobile, var(--logo-height-desktop, 36px));
+  }
+}
+
 /* Utility tweaks for the admin UI */
 button:disabled {
   @apply opacity-50 cursor-not-allowed;

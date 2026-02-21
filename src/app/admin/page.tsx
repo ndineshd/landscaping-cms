@@ -72,11 +72,15 @@ export default function AdminDashboard() {
   const draftFileCount = Object.entries(dirtyFiles).filter(
     ([filePath, isDirty]) => isDirty && !stagedFiles[filePath]
   ).length;
+  const pendingFileCount = stagedFileCount + draftFileCount;
   const selectedFileHasDraftChanges = selectedFile
     ? Boolean(dirtyFiles[selectedFile] && !stagedFiles[selectedFile])
     : false;
   const selectedFileIsQueued = selectedFile
     ? Boolean(dirtyFiles[selectedFile] && stagedFiles[selectedFile])
+    : false;
+  const selectedFileHasPendingChanges = selectedFile
+    ? Boolean(dirtyFiles[selectedFile] || stagedFiles[selectedFile])
     : false;
   const hasIdField = fields.some((field) => field.name === "id");
   const hasIdSourceField = fields.some((field) =>
@@ -186,6 +190,47 @@ export default function AdminDashboard() {
 
     setPublishSummary(result);
     setIsPublishDialogOpen(true);
+  };
+
+  const handleResetCurrent = async () => {
+    if (!selectedFile) return;
+    if (!selectedFileHasPendingChanges) return;
+
+    const shouldReset = window.confirm(
+      "Reset local changes for this file and reload from remote?"
+    );
+    if (!shouldReset) return;
+
+    await loadData(selectedFile, password, true);
+  };
+
+  const handleResetAll = async () => {
+    const filePathsToReset = Array.from(
+      new Set([...Object.keys(dirtyFiles), ...Object.keys(stagedFiles)])
+    ).filter((filePath) => dirtyFiles[filePath] || stagedFiles[filePath]);
+    if (filePathsToReset.length === 0) return;
+
+    const shouldReset = window.confirm(
+      `Reset all local changes for ${filePathsToReset.length} file(s)? This will discard local drafts and queued updates.`
+    );
+    if (!shouldReset) return;
+
+    const orderedFilePaths = [...filePathsToReset].sort((left, right) => {
+      if (left === CMS_FILES.ADMIN_CONFIG) return -1;
+      if (right === CMS_FILES.ADMIN_CONFIG) return 1;
+      return 0;
+    });
+
+    const previousSelection = selectedFile;
+    let lastLoadedPath: string | null = null;
+    for (const filePath of orderedFilePaths) {
+      await loadData(filePath, password, true);
+      lastLoadedPath = filePath;
+    }
+
+    if (previousSelection && lastLoadedPath && previousSelection !== lastLoadedPath) {
+      await loadData(previousSelection, password);
+    }
   };
 
   const handleDeleteItem = (localItemId: string) => {
@@ -334,11 +379,13 @@ export default function AdminDashboard() {
             isLoading={isLoading}
             stagedFileCount={stagedFileCount}
             draftFileCount={draftFileCount}
+            pendingFileCount={pendingFileCount}
             activeLanguageCode={activeLanguageCode}
             editableLanguageCodes={editableLanguageCodes}
             onActiveLanguageChange={setActiveLanguageCode}
             getLanguageName={getLanguageName}
             onSaveAll={handleSaveAll}
+            onResetAll={handleResetAll}
             onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           />
 
@@ -386,9 +433,11 @@ export default function AdminDashboard() {
                   canAddTopLevelItems={canAddTopLevelItems}
                   selectedFileHasDraftChanges={selectedFileHasDraftChanges}
                   selectedFileIsQueued={selectedFileIsQueued}
+                  selectedFileHasPendingChanges={selectedFileHasPendingChanges}
                   onReload={handleReload}
                   onAddItem={addItem}
                   onSaveCurrent={handleSave}
+                  onResetCurrent={handleResetCurrent}
                 />
 
                 {isSiteConfigFile && (

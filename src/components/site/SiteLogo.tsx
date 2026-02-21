@@ -53,12 +53,17 @@ function toLogoSize(value: unknown): number | null {
 }
 
 function getBadgeSizeStyle(logo: LogoConfig): CSSProperties {
-  const width = toLogoSize(logo.imageWidth) || 36;
-  const height = toLogoSize(logo.imageHeight) || width;
+  const desktopWidth = toLogoSize(logo.imageWidth) || 36;
+  const desktopHeight = toLogoSize(logo.imageHeight) || desktopWidth;
+  const mobileWidth = toLogoSize(logo.imageMobileWidth) || desktopWidth;
+  const mobileHeight = toLogoSize(logo.imageMobileHeight) || desktopHeight;
+
   return {
-    width,
-    height,
-  };
+    "--logo-width-desktop": `${desktopWidth}px`,
+    "--logo-height-desktop": `${desktopHeight}px`,
+    "--logo-width-mobile": `${mobileWidth}px`,
+    "--logo-height-mobile": `${mobileHeight}px`,
+  } as CSSProperties;
 }
 
 function renderLogoBadge(logo: LogoConfig, logoText: string, siteName: string) {
@@ -67,7 +72,7 @@ function renderLogoBadge(logo: LogoConfig, logoText: string, siteName: string) {
   if (!hasImage) {
     return (
       <span
-        className="grid place-items-center rounded-[5px] bg-[var(--site-color-primary)] text-xs font-bold uppercase text-white"
+        className="site-logo-badge grid place-items-center rounded-[5px] bg-[var(--site-color-primary)] text-xs font-bold uppercase text-white"
         style={badgeStyle}
       >
         {logoText}
@@ -82,7 +87,7 @@ function renderLogoBadge(logo: LogoConfig, logoText: string, siteName: string) {
 
   return (
     <span
-      className="relative inline-flex items-center justify-center overflow-hidden rounded-[5px] bg-[var(--site-color-accent)] p-1.5"
+      className="site-logo-badge relative inline-flex items-center justify-center overflow-hidden rounded-[5px] bg-[var(--site-color-accent)] p-1.5"
       style={badgeStyle}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}

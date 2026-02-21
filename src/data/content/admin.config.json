@@ -4,8 +4,6 @@
     "companyName": "GrowWell Landscapes Pvt Ltd",
     "tagline": "Professional landscaping services",
     "description": "Transforming outdoor spaces into living works of art. Chennai's trusted experts in terraces, gardens, and sustainable landscaping since 2010.",
-    "tagline_tel": "వృత్తిపరమైన ల్యాండ్‌స్కేపింగ్ సేవలు",
-    "description_tel": "బయటి ప్రదేశాలను జీవంతో నిండిన కళాఖండాలుగా మలుస్తున్నాం. 2010 నుండి చెన్నైలో టెర్రస్, తోటలు మరియు సస్టైనబుల్ ల్యాండ్‌స్కేపింగ్‌లో నమ్మకమైన నిపుణులు.",
     "logo": {
       "displayMode": "image-only",
       "type": "image",
@@ -15,7 +13,9 @@
       "imageObjectFit": "contain",
       "imageBlendMode": "multiply",
       "imageWidth": "400",
-      "imageHeight": "70"
+      "imageHeight": "70",
+      "imageMobileWidth": "220",
+      "imageMobileHeight": "40"
     },
     "defaultLanguage": "en",
     "languages": [
@@ -37,8 +37,12 @@
       "tel",
       "ta"
     ],
-    "description_ta": "வெளிப்புற இடங்களை வாழும் கலைப் படைப்புகளாக மாற்றுதல். 2010 முதல் மொட்டை மாடிகள், தோட்டங்கள் மற்றும் நிலையான நிலத்தோற்ற அலங்காரத்தில் சென்னையின் நம்பகமான நிபுணர்கள்.",
-    "tagline_ta": "தொழில்முறை இயற்கையை ரசித்தல் சேவைகள்"
+    "companyName_tel": "GrowWell Landscapes Pvt Ltd",
+    "companyName_ta": "GrowWell Landscapes Pvt Ltd",
+    "tagline_tel": "వృత్తిపరమైన ల్యాండ్‌స్కేపింగ్ సేవలు",
+    "tagline_ta": "தொழில்முறை இயற்கையை ரசித்தல் சேவைகள்",
+    "description_tel": "బయటి ప్రదేశాలను జీవంతో నిండిన కళాఖండాలుగా మలుస్తున్నాం. 2010 నుండి చెన్నైలో టెర్రస్, తోటలు మరియు సస్టైనబుల్ ల్యాండ్‌స్కేపింగ్‌లో నమ్మకమైన నిపుణులు.",
+    "description_ta": "வெளிப்புற இடங்களை வாழும் கலைப் படைப்புகளாக மாற்றுதல். 2010 முதல் மொட்டை மாடிகள், தோட்டங்கள் மற்றும் நிலையான நிலத்தோற்ற அலங்காரத்தில் சென்னையின் நம்பகமான நிபுணர்கள்."
   },
   "seo": {
     "title": "GrowWell Landscapes - Professional Landscaping Services in Chennai",
@@ -46,10 +50,10 @@
     "keywords": "landscaping, terrace garden, lawn maintenance, vertical gardens, Chennai landscaping, garden design",
     "favicon": "/favicon.ico",
     "ogImage": "/images/og-image.jpg",
-    "description_ta": "வெளிப்புற இடங்களை வாழும் கலைப் படைப்புகளாக மாற்றுதல். 2010 முதல் மொட்டை மாடிகள், தோட்டங்கள் மற்றும் நிலையான நிலத்தோற்ற அலங்காரத்தில் சென்னையின் நம்பகமான நிபுணர்கள்.",
     "title_ta": "க்ரோவெல் லேண்ட்ஸ்கேப்ஸ் - சென்னையில் தொழில்முறை லேண்ட்ஸ்கேப்பிங் சேவைகள்",
-    "description_tel": "బయటి ప్రదేశాలను జీవంతో నిండిన కళాఖండాలుగా మలుస్తున్నాం. 2010 నుండి చెన్నైలో టెర్రస్, తోటలు మరియు సస్టైనబుల్ ల్యాండ్‌స్కేపింగ్‌లో నమ్మకమైన నిపుణులు.",
-    "title_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్‌లు - చెన్నైలో ప్రొఫెషనల్ ల్యాండ్‌స్కేపింగ్ సేవలు"
+    "title_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్‌లు - చెన్నైలో ప్రొఫెషనల్ ల్యాండ్‌స్కేపింగ్ సేవలు",
+    "description_ta": "வெளிப்புற இடங்களை வாழும் கலைப் படைப்புகளாக மாற்றுதல். 2010 முதல் மொட்டை மாடிகள், தோட்டங்கள் மற்றும் நிலையான நிலத்தோற்ற அலங்காரத்தில் சென்னையின் நம்பகமான நிபுணர்கள்.",
+    "description_tel": "బయటి ప్రదేశాలను జీవంతో నిండిన కళాఖండాలుగా మలుస్తున్నాం. 2010 నుండి చెన్నైలో టెర్రస్, తోటలు మరియు సస్టైనబుల్ ల్యాండ్‌స్కేపింగ్‌లో నమ్మకమైన నిపుణులు."
   },
   "theme": {
     "colors": {
@@ -76,18 +80,22 @@
     "location": {
       "name": "GrowWell Landscapes - Landscape Contractor",
       "name_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్స్ - ల్యాండ్‌స్కేప్ కాంట్రాక్టర్",
-      "url": "https://maps.app.goo.gl/zmCRae9YmHq5jEgEA"
+      "url": "https://maps.app.goo.gl/zmCRae9YmHq5jEgEA",
+      "name_ta": "GrowWell Landscapes - Landscape Contractor"
     },
     "whatsapp": {
       "number": "919500836544",
       "defaultMessage": "Hi, I'm interested in your landscaping services. Can you help me?",
-      "defaultMessage_tel": "హాయ్, మీ ల్యాండ్‌స్కేపింగ్ సేవలపై నాకు ఆసక్తి ఉంది. దయచేసి సహాయం చేస్తారా?"
+      "defaultMessage_tel": "హాయ్, మీ ల్యాండ్‌స్కేపింగ్ సేవలపై నాకు ఆసక్తి ఉంది. దయచేసి సహాయం చేస్తారా?",
+      "defaultMessage_ta": "Hi, I'm interested in your landscaping services. Can you help me?"
     },
     "floatingContact": {
       "enabled": true,
       "showWhatsApp": true,
       "showEmail": false
-    }
+    },
+    "address_tel": "Chennai, Tamil Nadu",
+    "address_ta": "Chennai, Tamil Nadu"
   },
   "socialMedia": [
     {
