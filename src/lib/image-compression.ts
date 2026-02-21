@@ -178,6 +178,31 @@ export function generateUniqueFileName(originalFileName: string): string {
   return `img-${timestamp}.${extension}`;
 }
 
+function toSafeImageExtension(originalFileName: string): string {
+  const rawExtension = originalFileName.split(".").pop()?.toLowerCase() || "jpg";
+  if (["jpg", "jpeg", "png", "webp"].includes(rawExtension)) {
+    return rawExtension;
+  }
+  return "jpg";
+}
+
+export function generateDeterministicImageFileName(
+  contentHash: string,
+  originalFileName: string
+): string {
+  const normalizedHash = contentHash.trim().toLowerCase().replace(/[^a-f0-9]/g, "");
+  const safeHash = normalizedHash.slice(0, 32) || String(Date.now());
+  const extension = toSafeImageExtension(originalFileName);
+  return `img-${safeHash}.${extension}`;
+}
+
+export async function calculateFileHash(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /**
  * Format file size for display
  * @param bytes - Size in bytes

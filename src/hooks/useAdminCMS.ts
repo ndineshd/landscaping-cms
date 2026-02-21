@@ -22,9 +22,10 @@ import {
 } from "@/lib/cms-utils";
 import {
   compressImage,
+  calculateFileHash,
   DEFAULT_COMPRESSION_OPTIONS,
   fileToBase64,
-  generateUniqueFileName,
+  generateDeterministicImageFileName,
 } from "@/lib/image-compression";
 import {
   applyLanguageConfigToAdminConfig,
@@ -207,6 +208,74 @@ function collectManagedUploadPaths(value: unknown): string[] {
 
   walk(value);
   return Array.from(paths);
+}
+
+function countManagedUploadPathReferences(value: unknown, targetPath: string): number {
+  let count = 0;
+
+  const walk = (node: unknown) => {
+    if (typeof node === "string") {
+      const matches = node
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry === targetPath);
+      count += matches.length;
+      return;
+    }
+    if (Array.isArray(node)) {
+      node.forEach((entry) => walk(entry));
+      return;
+    }
+    if (isRecord(node)) {
+      Object.values(node).forEach((entry) => walk(entry));
+    }
+  };
+
+  walk(value);
+  return count;
+}
+
+function countManagedUploadPathReferencesInFiles(
+  itemsByFile: Record<string, DataItem[]>,
+  targetPath: string
+): number {
+  return Object.values(itemsByFile).reduce((total, fileItems) => {
+    return (
+      total +
+      fileItems.reduce((fileTotal, item) => {
+        return fileTotal + countManagedUploadPathReferences(item, targetPath);
+      }, 0)
+    );
+  }, 0);
+}
+
+function extractManagedUploadHash(imagePath: string): string | null {
+  const normalizedPath = imagePath.trim().toLowerCase();
+  const match = normalizedPath.match(
+    /\/img-([a-f0-9]{16,64})\.(jpg|jpeg|png|webp)$/
+  );
+  return match ? match[1] : null;
+}
+
+function findManagedUploadPathByHash(
+  itemsByFile: Record<string, DataItem[]>,
+  targetHash: string
+): string | null {
+  const normalizedTargetHash = targetHash.trim().toLowerCase();
+  if (!normalizedTargetHash) return null;
+
+  for (const fileItems of Object.values(itemsByFile)) {
+    for (const item of fileItems) {
+      const paths = collectManagedUploadPaths(item);
+      for (const path of paths) {
+        if (extractManagedUploadHash(path) === normalizedTargetHash) {
+          return path;
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 function resolveImageUploadFolder(filePath: string, fieldPath: (string | number)[]): string {
@@ -871,6 +940,54 @@ export function useAdminCMS() {
     });
   }, []);
 
+  const getEffectiveItemsByFile = useCallback((): Record<string, DataItem[]> => {
+    if (!selectedFile) return itemsByFile;
+    if (itemsByFile[selectedFile]) return itemsByFile;
+    return {
+      ...itemsByFile,
+      [selectedFile]: items,
+    };
+  }, [items, itemsByFile, selectedFile]);
+
+  const deleteManagedUploadIfUnreferenced = useCallback(
+    async (
+      imagePath: string,
+      password: string,
+      referencesBeingRemoved = 1
+    ): Promise<boolean> => {
+      if (!isManagedUploadPath(imagePath)) return false;
+      if (referencesBeingRemoved <= 0) return false;
+
+      const effectiveItemsByFile = getEffectiveItemsByFile();
+      const totalReferences = countManagedUploadPathReferencesInFiles(
+        effectiveItemsByFile,
+        imagePath
+      );
+
+      if (totalReferences > referencesBeingRemoved) {
+        return false;
+      }
+
+      try {
+        const payload: ImageDeletePayload = {
+          filePath: `public${imagePath}`,
+          password,
+        };
+
+        await fetch("/api/delete-image", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        return true;
+      } catch (error) {
+        console.error("Failed to delete image:", error);
+        return false;
+      }
+    },
+    [getEffectiveItemsByFile]
+  );
+
   const persistFile = useCallback(
     async (filePath: string, fileItems: DataItem[], password: string): Promise<boolean> => {
       const sanitizedItems = fileItems.map(stripLocalId);
@@ -1369,20 +1486,15 @@ export function useAdminCMS() {
       if (imagePaths.length > 0) {
         await Promise.all(
           imagePaths.map(async (imagePath) => {
-            try {
-              const payload: ImageDeletePayload = {
-                filePath: `public${imagePath}`,
-                password,
-              };
-
-              await fetch("/api/delete-image", {
-                method: "DELETE",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-              });
-            } catch (error) {
-              console.error("Failed to delete image:", error);
-            }
+            const referencesInRemovedItem = countManagedUploadPathReferences(
+              item,
+              imagePath
+            );
+            await deleteManagedUploadIfUnreferenced(
+              imagePath,
+              password,
+              referencesInRemovedItem
+            );
           })
         );
       }
@@ -1398,7 +1510,7 @@ export function useAdminCMS() {
 
       toast.success("Item deleted");
     },
-    [items, markFilesDirty, selectedFile]
+    [deleteManagedUploadIfUnreferenced, items, markFilesDirty, selectedFile]
   );
 
   /**
@@ -1432,9 +1544,33 @@ export function useAdminCMS() {
           file,
           IMAGE_UPLOAD_COMPRESSION_OPTIONS
         );
+        const contentHash = await calculateFileHash(compressed.file);
+        const effectiveItemsByFile = getEffectiveItemsByFile();
+        const reusedImagePath = findManagedUploadPathByHash(
+          effectiveItemsByFile,
+          contentHash
+        );
+
+        if (reusedImagePath) {
+          if (reusedImagePath !== previousImagePath) {
+            updateItemField(localItemId, fieldPath, reusedImagePath);
+
+            if (isManagedUploadPath(previousImagePath)) {
+              deleteManagedUploadIfUnreferenced(previousImagePath, password, 1).catch(
+                (error) => {
+                  console.error("Failed to remove previous image:", error);
+                }
+              );
+            }
+          }
+
+          toast.success("Image already exists. Linked existing path.");
+          return;
+        }
+
         const base64Content = await fileToBase64(compressed.file);
         const payload: ImageUploadPayload = {
-          fileName: generateUniqueFileName(file.name),
+          fileName: generateDeterministicImageFileName(contentHash, file.name),
           base64Content,
           folder: resolveImageUploadFolder(selectedFile, fieldPath),
           password,
@@ -1460,18 +1596,11 @@ export function useAdminCMS() {
           isManagedUploadPath(previousImagePath) &&
           previousImagePath !== imagePath
         ) {
-          const deletePayload: ImageDeletePayload = {
-            filePath: `public${previousImagePath}`,
-            password,
-          };
-
-          fetch("/api/delete-image", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(deletePayload),
-          }).catch((error) => {
-            console.error("Failed to remove previous image:", error);
-          });
+          deleteManagedUploadIfUnreferenced(previousImagePath, password, 1).catch(
+            (error) => {
+              console.error("Failed to remove previous image:", error);
+            }
+          );
         }
 
         toast.success(
@@ -1486,7 +1615,12 @@ export function useAdminCMS() {
         setIsLoading(false);
       }
     },
-    [selectedFile, updateItemField]
+    [
+      deleteManagedUploadIfUnreferenced,
+      getEffectiveItemsByFile,
+      selectedFile,
+      updateItemField,
+    ]
   );
 
   const removeImage = useCallback(
@@ -1497,26 +1631,13 @@ export function useAdminCMS() {
       currentImagePath?: string
     ) => {
       if (isManagedUploadPath(currentImagePath)) {
-        try {
-          const payload: ImageDeletePayload = {
-            filePath: `public${currentImagePath}`,
-            password,
-          };
-
-          await fetch("/api/delete-image", {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        } catch (error) {
-          console.error("Failed to delete image:", error);
-        }
+        await deleteManagedUploadIfUnreferenced(currentImagePath, password, 1);
       }
 
       updateItemField(localItemId, fieldPath, "");
       toast.success("Image removed");
     },
-    [updateItemField]
+    [deleteManagedUploadIfUnreferenced, updateItemField]
   );
 
   /**
