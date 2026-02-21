@@ -4,9 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { unlink } from "fs/promises";
+import { readFile, unlink } from "fs/promises";
 import { join } from "path";
 import { createGitHubAPI } from "@/lib/github-api";
+import { CMS_FILES } from "@/lib/cms-utils";
 import type { APIResponse, ImageDeletePayload } from "@/types/cms";
 
 /**
@@ -40,6 +41,64 @@ function normalizeImagePath(filePath: string): string | null {
   }
 
   return normalized;
+}
+
+function toPublicUploadPath(normalizedFilePath: string): string {
+  return `/${normalizedFilePath.replace(/^public\//, "")}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function countUploadPathReferences(value: unknown, targetPath: string): number {
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry === targetPath).length;
+  }
+
+  if (Array.isArray(value)) {
+    return value.reduce<number>((total, entry) => {
+      return total + countUploadPathReferences(entry, targetPath);
+    }, 0);
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).reduce<number>((total, entry) => {
+      return total + countUploadPathReferences(entry, targetPath);
+    }, 0);
+  }
+
+  return 0;
+}
+
+async function loadCMSFileData(filePath: string): Promise<unknown> {
+  if (process.env.NODE_ENV === "development") {
+    const fullPath = join(process.cwd(), filePath);
+    const fileContent = await readFile(fullPath, "utf-8");
+    return JSON.parse(fileContent);
+  }
+
+  const github = createGitHubAPI();
+  const fileData = await github.getFile(filePath);
+  const decoded = Buffer.from(fileData.content || "", "base64").toString("utf-8");
+  return JSON.parse(decoded);
+}
+
+async function countUploadReferencesAcrossCMS(publicPath: string): Promise<number | null> {
+  try {
+    let totalReferences = 0;
+    for (const cmsFilePath of Object.values(CMS_FILES)) {
+      const content = await loadCMSFileData(cmsFilePath);
+      totalReferences += countUploadPathReferences(content, publicPath);
+    }
+    return totalReferences;
+  } catch (error) {
+    console.error("Failed to inspect upload references:", error);
+    return null;
+  }
 }
 
 /**
@@ -91,6 +150,36 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       };
       return NextResponse.json(response, { status: 400 });
     }
+    const publicPath = toPublicUploadPath(normalizedPath);
+    const referenceCount = await countUploadReferencesAcrossCMS(publicPath);
+
+    if (referenceCount === null) {
+      const safeSkipResponse: APIResponse = {
+        success: true,
+        data: {
+          path: publicPath,
+          deleted: false,
+          skipped: true,
+          reason: "Unable to verify references safely",
+        },
+        message: "Image deletion skipped because references could not be verified",
+      };
+      return NextResponse.json(safeSkipResponse);
+    }
+
+    if (referenceCount > 0) {
+      const skippedResponse: APIResponse = {
+        success: true,
+        data: {
+          path: publicPath,
+          deleted: false,
+          skipped: true,
+          references: referenceCount,
+        },
+        message: "Image deletion skipped because path is still referenced",
+      };
+      return NextResponse.json(skippedResponse);
+    }
 
     if (process.env.NODE_ENV === "development") {
       const fullPath = join(process.cwd(), normalizedPath);
@@ -106,7 +195,8 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       const successResponse: APIResponse = {
         success: true,
         data: {
-          path: normalizedPath,
+          path: publicPath,
+          deleted: true,
         },
         message: "Image deleted successfully (local development)",
       };
@@ -140,7 +230,8 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     const successResponse: APIResponse = {
       success: true,
       data: {
-        path: `/${normalizedPath.replace(/^public\//, "")}`,
+        path: publicPath,
+        deleted: true,
       },
       message: "Image deleted successfully",
     };
