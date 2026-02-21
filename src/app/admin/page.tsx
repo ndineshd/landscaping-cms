@@ -215,10 +215,15 @@ export default function AdminDashboard() {
 
     const existing = languageOptions.find((language) => language.code === code);
     if (existing) {
+      const nextLanguages = languageOptions.map((language) =>
+        language.code === code
+          ? { ...language, name: name || language.name }
+          : language
+      );
       const nextActiveCodes = availableLanguageCodes.includes(code)
         ? availableLanguageCodes
         : [...availableLanguageCodes, code];
-      updateLanguageConfig(languageOptions, nextActiveCodes, defaultLanguageCode);
+      updateLanguageConfig(nextLanguages, nextActiveCodes, defaultLanguageCode);
     } else {
       updateLanguageConfig(
         [...languageOptions, { code, name: name || code.toUpperCase() }],
@@ -229,6 +234,22 @@ export default function AdminDashboard() {
 
     setNewLanguageCode("");
     setNewLanguageName("");
+  };
+
+  const handleUpdateLanguageName = (languageCode: string, nextName: string) => {
+    const normalizedName = nextName.trim();
+    if (!normalizedName) return;
+
+    const currentLanguage = languageOptions.find((language) => language.code === languageCode);
+    if (!currentLanguage || currentLanguage.name === normalizedName) return;
+
+    const nextLanguages = languageOptions.map((language) =>
+      language.code === languageCode
+        ? { ...language, name: normalizedName }
+        : language
+    );
+
+    updateLanguageConfig(nextLanguages, availableLanguageCodes, defaultLanguageCode);
   };
 
   const handleToggleActiveLanguage = (languageCode: string) => {
@@ -370,6 +391,7 @@ export default function AdminDashboard() {
                         onActiveLanguageChange={setActiveLanguageCode}
                         onToggleActiveLanguage={handleToggleActiveLanguage}
                         onRemoveLanguage={handleRemoveLanguage}
+                        onUpdateLanguageName={handleUpdateLanguageName}
                         onAddLanguage={handleAddLanguage}
                         getLanguageName={getLanguageName}
                       />

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { LanguageOption } from "@/lib/language-utils";
@@ -20,6 +21,7 @@ interface LanguageSettingsCardProps {
   onActiveLanguageChange: (languageCode: string) => void;
   onToggleActiveLanguage: (languageCode: string) => void;
   onRemoveLanguage: (languageCode: string) => void;
+  onUpdateLanguageName: (languageCode: string, nextName: string) => void;
   onAddLanguage: () => void;
   getLanguageName: (languageCode: string) => string;
 }
@@ -40,9 +42,34 @@ export function LanguageSettingsCard({
   onActiveLanguageChange,
   onToggleActiveLanguage,
   onRemoveLanguage,
+  onUpdateLanguageName,
   onAddLanguage,
   getLanguageName,
 }: LanguageSettingsCardProps) {
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const nextDrafts: Record<string, string> = {};
+    languageOptions.forEach((language) => {
+      nextDrafts[language.code] = language.name;
+    });
+    setNameDrafts(nextDrafts);
+  }, [languageOptions]);
+
+  const commitLanguageName = (languageCode: string) => {
+    const current = languageOptions.find((language) => language.code === languageCode);
+    if (!current) return;
+
+    const draftValue = (nameDrafts[languageCode] || "").trim();
+    if (!draftValue) {
+      setNameDrafts((prev) => ({ ...prev, [languageCode]: current.name }));
+      return;
+    }
+    if (draftValue === current.name) return;
+
+    onUpdateLanguageName(languageCode, draftValue);
+  };
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
       <div className="flex items-start justify-between gap-2">
@@ -101,17 +128,39 @@ export function LanguageSettingsCard({
             </div>
           </div>
 
+          <p className="text-xs text-slate-500">
+            Language code is locked after creation. You can edit only the label.
+          </p>
+
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2">
             {languageOptions.map((language) => {
               const canRemove = language.code !== defaultLanguageCode && language.code !== "en";
               return (
                 <div
                   key={language.code}
-                  className="flex items-center justify-between gap-2 rounded-md bg-white border border-slate-200 px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-md bg-white border border-slate-200 px-3 py-2"
                 >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-slate-800">{language.name}</div>
-                    <div className="text-xs text-slate-500 uppercase">{language.code}</div>
+                  <div className="min-w-0 flex-1">
+                    <label className="text-xs font-medium text-slate-600">Label</label>
+                    <input
+                      type="text"
+                      value={nameDrafts[language.code] ?? language.name}
+                      onChange={(e) =>
+                        setNameDrafts((prev) => ({
+                          ...prev,
+                          [language.code]: e.target.value,
+                        }))
+                      }
+                      onBlur={() => commitLanguageName(language.code)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        (e.target as HTMLInputElement).blur();
+                      }}
+                      className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                    />
+                    <div className="mt-1 text-[11px] text-slate-500 uppercase">
+                      Code: {language.code}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="inline-flex items-center gap-2 text-xs text-slate-600">

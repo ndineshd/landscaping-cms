@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Check, ChevronDown, Languages, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -23,6 +23,20 @@ interface SiteHeaderProps {
   logoText: string;
   navItems: SiteNavItem[];
   siteName: string;
+}
+
+interface HeaderLanguageOption {
+  code: string;
+  name: string;
+}
+
+interface LanguageSwitcherProps {
+  activeLanguageCode: string;
+  isTransparent: boolean;
+  languageOptions: HeaderLanguageOption[];
+  languageSwitcherAriaLabel: string;
+  onChange: (languageCode: string) => void;
+  size: "desktop" | "mobile";
 }
 
 function normalizePath(value: string): string {
@@ -68,6 +82,124 @@ function createLanguageHref(
     .split("#")[0] || ROUTES.HOME;
   const localizedPath = createLocalizedPath(basePath, nextLanguageCode, languageCodes);
   return searchParamsString ? `${localizedPath}?${searchParamsString}` : localizedPath;
+}
+
+function LanguageSwitcher({
+  activeLanguageCode,
+  isTransparent,
+  languageOptions,
+  languageSwitcherAriaLabel,
+  onChange,
+  size,
+}: LanguageSwitcherProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const activeLanguageName =
+    languageOptions.find((language) => language.code === activeLanguageCode)?.name ||
+    activeLanguageCode.toUpperCase();
+  const isMobile = size === "mobile";
+
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (containerRef.current?.contains(target)) return;
+      setIsOpen(false);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [activeLanguageCode]);
+
+  return (
+    <div className={cn("relative", isMobile ? "w-full" : "")} ref={containerRef}>
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-label={languageSwitcherAriaLabel}
+        className={cn(
+          "inline-flex items-center justify-between gap-2 rounded-[5px] border transition-colors duration-200",
+          isMobile
+            ? "h-10 w-full px-3 text-sm font-medium"
+            : "h-9 min-w-[132px] px-3 text-xs font-semibold",
+          !isMobile && isTransparent
+            ? "border-white/40 bg-white/15 text-white hover:bg-white/25"
+            : "border-[var(--site-color-border)] bg-white text-[var(--site-color-foreground)] hover:border-[var(--site-color-primary)]"
+        )}
+        onClick={() => setIsOpen((previousValue) => !previousValue)}
+        type="button"
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <Languages className={cn("shrink-0", isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
+          <span className="truncate">{activeLanguageName}</span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "shrink-0 transition-transform duration-200",
+            isOpen ? "rotate-180" : "",
+            isMobile ? "h-4 w-4" : "h-3.5 w-3.5"
+          )}
+        />
+      </button>
+      {isOpen ? (
+        <div
+          className={cn(
+            "absolute z-[80] mt-2 overflow-hidden rounded-[8px] border border-[var(--site-color-border)] bg-white shadow-lg",
+            isMobile ? "left-0 right-0" : "right-0 w-48"
+          )}
+          role="listbox"
+        >
+          <ul className="max-h-72 overflow-y-auto py-1">
+            {languageOptions.map((language) => {
+              const isActive = language.code === activeLanguageCode;
+              return (
+                <li key={language.code}>
+                  <button
+                    aria-selected={isActive}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors",
+                      isActive
+                        ? "bg-[var(--site-color-accent)] font-medium text-[var(--site-color-primary)]"
+                        : "text-[var(--site-color-foreground)] hover:bg-[var(--site-color-muted)]"
+                    )}
+                    onClick={() => {
+                      setIsOpen(false);
+                      if (!isActive) {
+                        onChange(language.code);
+                      }
+                    }}
+                    role="option"
+                    type="button"
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <Languages className="h-3.5 w-3.5 shrink-0 text-[var(--site-color-primary)]" />
+                      <span className="truncate">{language.name}</span>
+                    </span>
+                    {isActive ? <Check className="h-3.5 w-3.5 shrink-0" /> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -162,10 +294,6 @@ export function SiteHeader({
     setIsMenuOpen(false);
   };
   const showLanguageSwitcher = languageOptions.length > 1;
-  const alternateLanguage =
-    languageOptions.length === 2
-      ? languageOptions.find((language) => language.code !== activeLanguageCode) || null
-      : null;
   const homeHref = createLocalizedPath(
     ROUTES.HOME,
     activeLanguageCode,
@@ -269,45 +397,14 @@ export function SiteHeader({
               })}
               {showLanguageSwitcher ? (
                 <li>
-                  {alternateLanguage ? (
-                    <button
-                      className={cn(
-                        "inline-flex h-9 items-center rounded-[5px] border px-4 text-xs font-semibold uppercase tracking-[0.08em] transition-colors duration-200",
-                        isTransparent
-                          ? "border-white/40 bg-white/15 text-white hover:bg-white/25"
-                          : "border-[var(--site-color-border)] bg-white text-[var(--site-color-foreground)] hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
-                      )}
-                      onClick={() => handleLanguageChange(alternateLanguage.code)}
-                      type="button"
-                    >
-                      {alternateLanguage.name}
-                    </button>
-                  ) : (
-                    <label
-                      className={cn(
-                        "inline-flex h-9 items-center rounded-[5px] border bg-white px-2",
-                        isTransparent
-                          ? "border-white/40 bg-white/15 text-white"
-                          : "border-[var(--site-color-border)]"
-                      )}
-                    >
-                      <span className="sr-only">{languageSwitcherAriaLabel}</span>
-                      <select
-                        className={cn(
-                          "h-full appearance-none bg-transparent px-2 text-xs font-semibold uppercase tracking-[0.08em] outline-none",
-                          isTransparent ? "text-white" : "text-[var(--site-color-foreground)]"
-                        )}
-                        onChange={(event) => handleLanguageChange(event.target.value)}
-                        value={activeLanguageCode}
-                      >
-                        {languageOptions.map((language) => (
-                          <option key={language.code} value={language.code}>
-                            {language.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
+                  <LanguageSwitcher
+                    activeLanguageCode={activeLanguageCode}
+                    isTransparent={isTransparent}
+                    languageOptions={languageOptions}
+                    languageSwitcherAriaLabel={languageSwitcherAriaLabel}
+                    onChange={handleLanguageChange}
+                    size="desktop"
+                  />
                 </li>
               ) : null}
             </ul>
@@ -345,30 +442,14 @@ export function SiteHeader({
               })}
               {showLanguageSwitcher ? (
                 <li className="pt-3">
-                  {alternateLanguage ? (
-                    <button
-                      className="block rounded-[5px] border border-[var(--site-color-border)] px-3 py-2 text-sm font-semibold uppercase tracking-[0.08em] text-[var(--site-color-foreground)] transition-colors duration-200 hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
-                      onClick={() => handleLanguageChange(alternateLanguage.code)}
-                      type="button"
-                    >
-                      {alternateLanguage.name}
-                    </button>
-                  ) : (
-                    <label className="block">
-                      <span className="sr-only">{languageSwitcherAriaLabel}</span>
-                      <select
-                        className="h-10 w-full rounded-[5px] border border-[var(--site-color-border)] bg-white px-3 text-sm font-medium text-[var(--site-color-foreground)] outline-none transition-colors focus:border-[var(--site-color-primary)]"
-                        onChange={(event) => handleLanguageChange(event.target.value)}
-                        value={activeLanguageCode}
-                      >
-                        {languageOptions.map((language) => (
-                          <option key={language.code} value={language.code}>
-                            {language.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
+                  <LanguageSwitcher
+                    activeLanguageCode={activeLanguageCode}
+                    isTransparent={false}
+                    languageOptions={languageOptions}
+                    languageSwitcherAriaLabel={languageSwitcherAriaLabel}
+                    onChange={handleLanguageChange}
+                    size="mobile"
+                  />
                 </li>
               ) : null}
             </ul>
