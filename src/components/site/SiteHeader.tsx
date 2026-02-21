@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
@@ -84,6 +84,7 @@ export function SiteHeader({
   navItems,
   siteName,
 }: SiteHeaderProps) {
+  const scrollAnimationFrameIdRef = useRef<number | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const pathname = usePathname();
@@ -122,13 +123,28 @@ export function SiteHeader({
     sitePathname.startsWith(`${ROUTES.SERVICES}/`);
 
   useEffect(() => {
-    const onScroll = () => {
-      setIsScrolled(window.scrollY > 24);
+    const updateScrollState = () => {
+      setIsScrolled((previousValue) => {
+        const scrollY = window.scrollY;
+        // Hysteresis prevents rapid toggling/flicker around the threshold.
+        return previousValue ? scrollY > 14 : scrollY > 30;
+      });
     };
 
-    onScroll();
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => {
+      if (scrollAnimationFrameIdRef.current !== null) return;
+      scrollAnimationFrameIdRef.current = window.requestAnimationFrame(() => {
+        scrollAnimationFrameIdRef.current = null;
+        updateScrollState();
+      });
+    };
+
+    updateScrollState();
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
+      if (scrollAnimationFrameIdRef.current !== null) {
+        window.cancelAnimationFrame(scrollAnimationFrameIdRef.current);
+      }
       window.removeEventListener("scroll", onScroll);
     };
   }, []);
@@ -208,7 +224,12 @@ export function SiteHeader({
             aria-controls="mobile-nav"
             aria-expanded={isMenuOpen}
             aria-label="Toggle navigation menu"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-[5px] border border-[var(--site-color-border)] md:hidden"
+            className={cn(
+              "inline-flex h-10 w-10 items-center justify-center rounded-[5px] border transition-colors md:hidden",
+              isTransparent
+                ? "border-white/50 text-white hover:bg-white/15"
+                : "border-[var(--site-color-border)] text-[var(--site-color-foreground)] hover:bg-[var(--site-color-muted)]"
+            )}
             onClick={() => setIsMenuOpen((prev) => !prev)}
             type="button"
           >
