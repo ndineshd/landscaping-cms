@@ -383,6 +383,13 @@ function normalizeItems(
   return { items: normalizedItems, idsChanged };
 }
 
+function cloneDataItems(items: DataItem[]): DataItem[] {
+  if (typeof structuredClone === "function") {
+    return structuredClone(items) as DataItem[];
+  }
+  return JSON.parse(JSON.stringify(items)) as DataItem[];
+}
+
 function deepMerge(base: unknown, override: unknown): unknown {
   if (override === undefined || override === null) {
     return base;
@@ -808,6 +815,12 @@ export function useAdminCMS() {
   const [fieldsByFile, setFieldsByFile] = useState<Record<string, DynamicField[]>>({});
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({});
   const [stagedFiles, setStagedFiles] = useState<Record<string, boolean>>({});
+  const [resetSnapshotsByFile, setResetSnapshotsByFile] = useState<Record<string, DataItem[]>>(
+    {}
+  );
+  const [resetSnapshotQueuedByFile, setResetSnapshotQueuedByFile] = useState<
+    Record<string, boolean>
+  >({});
   const [isArrayFileByPath, setIsArrayFileByPath] = useState<Record<string, boolean>>({});
   const [languageOptions, setLanguageOptions] = useState<LanguageOption[]>([
     { code: DEFAULT_LANGUAGE_CODE, name: "English" },
@@ -1029,6 +1042,11 @@ export function useAdminCMS() {
         setSelectedFile(filePath);
         setItemsByFile((prev) => ({ ...prev, [filePath]: normalized.items }));
         setFieldsByFile((prev) => ({ ...prev, [filePath]: detectedFields }));
+        setResetSnapshotsByFile((prev) => ({
+          ...prev,
+          [filePath]: cloneDataItems(normalized.items),
+        }));
+        setResetSnapshotQueuedByFile((prev) => ({ ...prev, [filePath]: false }));
         setIsArrayFileByPath((prev) => ({ ...prev, [filePath]: isArrayContent }));
         setDirtyFiles((prev) => ({
           ...prev,
@@ -1101,6 +1119,22 @@ export function useAdminCMS() {
         });
         return next;
       });
+      setResetSnapshotsByFile((prev) => {
+        const next = { ...prev };
+        filesToStage.forEach((path) => {
+          const sourceItems =
+            itemsByFile[path] || (selectedFile === path ? items : []);
+          next[path] = cloneDataItems(sourceItems);
+        });
+        return next;
+      });
+      setResetSnapshotQueuedByFile((prev) => {
+        const next = { ...prev };
+        filesToStage.forEach((path) => {
+          next[path] = true;
+        });
+        return next;
+      });
 
       if (filesToStage.length === 1) {
         toast.success("Saved locally. Ready for global update.");
@@ -1110,7 +1144,7 @@ export function useAdminCMS() {
         );
       }
     },
-    [dirtyFiles]
+    [dirtyFiles, items, itemsByFile, selectedFile]
   );
 
   /**
@@ -1138,6 +1172,7 @@ export function useAdminCMS() {
         let successCount = 0;
         let failedCount = 0;
         const publishedFiles: string[] = [];
+        const publishedSnapshots: Record<string, DataItem[]> = {};
 
         for (const filePath of stagedFilePaths) {
           const fileItems = itemsByFile[filePath] || [];
@@ -1150,11 +1185,24 @@ export function useAdminCMS() {
           if (isSaved) {
             successCount += 1;
             publishedFiles.push(filePath);
+            publishedSnapshots[filePath] = cloneDataItems(fileItems);
             setDirtyFiles((prev) => ({ ...prev, [filePath]: false }));
             setStagedFiles((prev) => ({ ...prev, [filePath]: false }));
           } else {
             failedCount += 1;
           }
+        }
+
+        const publishedPaths = Object.keys(publishedSnapshots);
+        if (publishedPaths.length > 0) {
+          setResetSnapshotsByFile((prev) => ({ ...prev, ...publishedSnapshots }));
+          setResetSnapshotQueuedByFile((prev) => {
+            const next = { ...prev };
+            publishedPaths.forEach((filePath) => {
+              next[filePath] = false;
+            });
+            return next;
+          });
         }
 
         if (successCount > 0) {
@@ -1175,6 +1223,40 @@ export function useAdminCMS() {
       }
     },
     [itemsByFile, persistFile, stagedFiles]
+  );
+
+  const resetDraftChanges = useCallback(
+    (filePath: string): boolean => {
+      if (!filePath) return false;
+
+      const snapshot = resetSnapshotsByFile[filePath];
+      if (!snapshot) {
+        return false;
+      }
+
+      const restoredItems = cloneDataItems(snapshot);
+      const restoredFields = detectFields(restoredItems);
+      const restoreAsQueued = Boolean(resetSnapshotQueuedByFile[filePath]);
+
+      setItemsByFile((prev) => ({ ...prev, [filePath]: restoredItems }));
+      setFieldsByFile((prev) => ({ ...prev, [filePath]: restoredFields }));
+
+      if (selectedFile === filePath) {
+        setItems(restoredItems);
+        setFields(restoredFields);
+      }
+
+      setDirtyFiles((prev) => ({ ...prev, [filePath]: restoreAsQueued }));
+      setStagedFiles((prev) => ({ ...prev, [filePath]: restoreAsQueued }));
+
+      toast.success(
+        restoreAsQueued
+          ? "Draft changes reset to last local save."
+          : "Draft changes reset."
+      );
+      return true;
+    },
+    [resetSnapshotQueuedByFile, resetSnapshotsByFile, selectedFile]
   );
 
   /**
@@ -1827,6 +1909,7 @@ export function useAdminCMS() {
     loadData,
     saveData,
     saveAllData,
+    resetDraftChanges,
     setActiveLanguageCode,
     updateLanguageConfig,
     updateItemField,

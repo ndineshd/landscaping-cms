@@ -50,6 +50,7 @@ export default function AdminDashboard() {
     loadData,
     saveData,
     saveAllData,
+    resetDraftChanges,
     languageOptions,
     defaultLanguageCode,
     activeLanguageCode,
@@ -197,9 +198,16 @@ export default function AdminDashboard() {
     if (!selectedFileHasPendingChanges) return;
 
     const shouldReset = window.confirm(
-      "Reset local changes for this file and reload from remote?"
+      selectedFileHasDraftChanges
+        ? "Reset draft changes for this file? This will revert to the last local-saved state (if available), otherwise to the last loaded state."
+        : "Reset local changes for this file and reload from remote?"
     );
     if (!shouldReset) return;
+
+    if (selectedFileHasDraftChanges) {
+      const didReset = resetDraftChanges(selectedFile);
+      if (didReset) return;
+    }
 
     await loadData(selectedFile, password, true);
   };
