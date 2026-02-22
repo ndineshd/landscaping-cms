@@ -142,11 +142,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!isAuthenticated) return;
     if (!password) return;
+    // Only auto-load on first authenticated render when nothing is selected yet.
+    if (selectedFile) return;
 
     const defaultFile = CMS_FILES.ADMIN_CONFIG;
-
-    // If already loaded, do nothing
-    if (selectedFile === defaultFile) return;
 
     // Set selection input and load automatically
     setSelectFileInput(defaultFile);

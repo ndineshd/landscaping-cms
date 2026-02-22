@@ -91,6 +91,15 @@ export interface JSONBatchUpdatePayload {
     /** File content as string */
     content: string;
   }>;
+  /** Media files to create/update in same commit */
+  mediaUploads?: Array<{
+    /** Media file path in repository (must be under public/uploads/) */
+    filePath: string;
+    /** Base64 encoded file content */
+    base64Content: string;
+  }>;
+  /** Media files to delete in same commit */
+  mediaDeletes?: string[];
   /** Admin password */
   password: string;
 }

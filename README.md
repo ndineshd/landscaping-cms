@@ -30,7 +30,7 @@ Set these in Vercel Project Settings -> Environment Variables:
 1. Open `/admin` on your deployed domain.
 2. Sign in using `ADMIN_PASSWORD`.
 3. Edit content, then publish.
-4. CMS API (`/api/update-json`, `/api/upload-image`, `/api/delete-image`) writes directly to GitHub on the configured branch.
+4. Global Save publishes staged JSON + media changes in one batch commit through `/api/update-json-batch`.
 5. Public site reads content from GitHub at runtime (with short server cache), so content updates propagate without waiting for static bundled JSON.
 6. If Vercel is connected to the same repo/branch, GitHub commit also triggers a fresh deployment automatically.
 
@@ -89,7 +89,7 @@ This repo sets `git.deploymentEnabled: false` in `vercel.json`, so direct Git pu
 
 ## CMS publish commit behavior
 
-Global Save now publishes staged JSON files in a single Git commit via `/api/update-json-batch`.
+Global Save publishes staged JSON and media operations in a single Git commit via `/api/update-json-batch`.
 
 - One Global Save with multiple staged content files -> one commit.
-- Media upload/delete still creates separate media commits, but those commits are ignored by deploy-hook workflow rules.
+- Media upload, media removal, and text updates are committed together in that same publish commit.

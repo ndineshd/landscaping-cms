@@ -299,8 +299,9 @@ export class GitHubAPI {
   async putFilesBatch(
     updates: Array<{
       filePath: string;
-      content: string;
+      content?: string;
       contentEncoding?: "utf-8" | "base64";
+      action?: "upsert" | "delete";
     }>,
     message: string
   ): Promise<{ commitSha: string; files: string[] }> {
@@ -341,13 +342,43 @@ export class GitHubAPI {
       path: string;
       mode: "100644";
       type: "blob";
-      sha: string;
+      sha: string | null;
     }> = [];
     const resolvedPaths: string[] = [];
 
     for (const update of updates) {
-      const existingFile = await this.getFile(update.filePath);
-      const resolvedPath = existingFile.path || update.filePath;
+      const action = update.action || "upsert";
+      let resolvedPath = this.resolvePathForWrite(update.filePath);
+
+      try {
+        const existingFile = await this.getFile(update.filePath);
+        resolvedPath = existingFile.path || resolvedPath;
+      } catch (error) {
+        if (
+          action === "delete" &&
+          error instanceof Error &&
+          error.message.includes("File not found")
+        ) {
+          continue;
+        }
+      }
+
+      if (action === "delete") {
+        treeEntries.push({
+          path: resolvedPath,
+          mode: "100644",
+          type: "blob",
+          sha: null,
+        });
+        resolvedPaths.push(resolvedPath);
+        this.rememberResolvedPath(update.filePath, resolvedPath);
+        continue;
+      }
+
+      if (typeof update.content !== "string") {
+        throw new Error(`Missing content for update file: ${update.filePath}`);
+      }
+
       const blobUrl = this.buildRepositoryUrl("/git/blobs");
       const blobResponse = await fetch(blobUrl, {
         method: "POST",
@@ -373,6 +404,10 @@ export class GitHubAPI {
       });
       resolvedPaths.push(resolvedPath);
       this.rememberResolvedPath(update.filePath, resolvedPath);
+    }
+
+    if (treeEntries.length === 0) {
+      throw new Error("No valid file changes were detected for batch commit");
     }
 
     const treeUrl = this.buildRepositoryUrl("/git/trees");

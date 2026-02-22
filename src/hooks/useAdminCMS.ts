@@ -10,8 +10,6 @@ import type {
   DataItem,
   DynamicField,
   APIResponse,
-  ImageUploadPayload,
-  ImageDeletePayload,
   JSONBatchUpdatePayload,
 } from "@/types/cms";
 import {
@@ -86,8 +84,30 @@ interface TranslationTarget {
   apply: (translated: string) => void;
 }
 
+interface PendingMediaOperation {
+  action: "upload" | "delete";
+  filePath: string;
+  base64Content?: string;
+  sourceFilePath: string;
+}
+
 function createLocalItemId(): string {
   return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function toRepositoryUploadPath(path: string): string | null {
+  const trimmed = path.trim();
+  if (!trimmed.startsWith("/uploads/")) {
+    return null;
+  }
+  return `public${trimmed}`;
+}
+
+function toPublicUploadPath(filePath: string): string {
+  if (filePath.startsWith("public/")) {
+    return `/${filePath.slice("public/".length)}`;
+  }
+  return filePath.startsWith("/") ? filePath : `/${filePath}`;
 }
 
 async function fetchCMSFile(
@@ -267,20 +287,6 @@ function countManagedUploadPathReferences(value: unknown, targetPath: string): n
 
   walk(value);
   return count;
-}
-
-function countManagedUploadPathReferencesInFiles(
-  itemsByFile: Record<string, DataItem[]>,
-  targetPath: string
-): number {
-  return Object.values(itemsByFile).reduce((total, fileItems) => {
-    return (
-      total +
-      fileItems.reduce((fileTotal, item) => {
-        return fileTotal + countManagedUploadPathReferences(item, targetPath);
-      }, 0)
-    );
-  }, 0);
 }
 
 function extractManagedUploadHash(imagePath: string): string | null {
@@ -1049,6 +1055,9 @@ export function useAdminCMS() {
   ]);
   const [defaultLanguageCode, setDefaultLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
   const [activeLanguageCode, setActiveLanguageCode] = useState(DEFAULT_LANGUAGE_CODE);
+  const [pendingMediaOperations, setPendingMediaOperations] = useState<
+    PendingMediaOperation[]
+  >([]);
   const isCurrentFileArray = selectedFile ? isArrayFileByPath[selectedFile] !== false : true;
 
   const applyLanguageState = useCallback(
@@ -1090,6 +1099,49 @@ export function useAdminCMS() {
     });
   }, []);
 
+  const queueMediaUpload = useCallback(
+    (sourceFilePath: string, publicPath: string, base64Content: string) => {
+      const repositoryPath = toRepositoryUploadPath(publicPath);
+      if (!repositoryPath) return;
+
+      setPendingMediaOperations((prev) => [
+        ...prev,
+        {
+          action: "upload",
+          filePath: repositoryPath,
+          base64Content,
+          sourceFilePath,
+        },
+      ]);
+    },
+    []
+  );
+
+  const queueMediaDelete = useCallback(
+    (sourceFilePath: string, publicPath: string) => {
+      const repositoryPath = toRepositoryUploadPath(publicPath);
+      if (!repositoryPath) return;
+
+      setPendingMediaOperations((prev) => [
+        ...prev,
+        {
+          action: "delete",
+          filePath: repositoryPath,
+          sourceFilePath,
+        },
+      ]);
+    },
+    []
+  );
+
+  const clearPendingMediaForFiles = useCallback((filePaths: string[]) => {
+    if (filePaths.length === 0) return;
+    const filePathSet = new Set(filePaths);
+    setPendingMediaOperations((prev) =>
+      prev.filter((operation) => !filePathSet.has(operation.sourceFilePath))
+    );
+  }, []);
+
   const getEffectiveItemsByFile = useCallback((): Record<string, DataItem[]> => {
     if (!selectedFile) return itemsByFile;
     if (itemsByFile[selectedFile]) return itemsByFile;
@@ -1098,45 +1150,6 @@ export function useAdminCMS() {
       [selectedFile]: items,
     };
   }, [items, itemsByFile, selectedFile]);
-
-  const deleteManagedUploadIfUnreferenced = useCallback(
-    async (
-      imagePath: string,
-      password: string,
-      referencesBeingRemoved = 1
-    ): Promise<boolean> => {
-      if (!isManagedUploadPath(imagePath)) return false;
-      if (referencesBeingRemoved <= 0) return false;
-
-      const effectiveItemsByFile = getEffectiveItemsByFile();
-      const totalReferences = countManagedUploadPathReferencesInFiles(
-        effectiveItemsByFile,
-        imagePath
-      );
-
-      if (totalReferences > referencesBeingRemoved) {
-        return false;
-      }
-
-      try {
-        const payload: ImageDeletePayload = {
-          filePath: `public${imagePath}`,
-          password,
-        };
-
-        await fetch("/api/delete-image", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        return true;
-      } catch (error) {
-        console.error("Failed to delete image:", error);
-        return false;
-      }
-    },
-    [getEffectiveItemsByFile]
-  );
 
   /**
    * Load JSON data from GitHub
@@ -1179,6 +1192,22 @@ export function useAdminCMS() {
         const data = await fetchCMSFile(filePath, password);
 
         if (!data.success) {
+          const fallbackItems = itemsByFile[filePath] || resetSnapshotsByFile[filePath];
+          if (fallbackItems && fallbackItems.length >= 0) {
+            const normalizedFallback =
+              filePath === CMS_FILES.PROJECTS
+                ? normalizeProjectItems(fallbackItems).items
+                : fallbackItems;
+            const fallbackFields = detectFields(normalizedFallback);
+            setItems(normalizedFallback);
+            setFields(fallbackFields);
+            setSelectedFile(filePath);
+            toast.warning(
+              "Loaded cached data for this section because remote fetch failed."
+            );
+            return true;
+          }
+
           toast.error(data.error || "Failed to load data");
           return false;
         }
@@ -1310,6 +1339,7 @@ export function useAdminCMS() {
         // Loading/syncing remote data should not create draft state automatically.
         setDirtyFiles((prev) => ({ ...prev, [filePath]: false }));
         setStagedFiles((prev) => ({ ...prev, [filePath]: false }));
+        clearPendingMediaForFiles([filePath]);
 
         if (normalized.idsChanged) {
           toast.info("IDs normalized to lowercase category-title format");
@@ -1335,11 +1365,13 @@ export function useAdminCMS() {
     },
     [
       applyLanguageState,
+      clearPendingMediaForFiles,
       availableLanguageCodes,
       defaultLanguageCode,
       fieldsByFile,
       itemsByFile,
       languageOptions,
+      resetSnapshotsByFile,
     ]
   );
 
@@ -1430,28 +1462,96 @@ export function useAdminCMS() {
           .map((filePath) => ({
             filePath,
             fileItems: itemsByFile[filePath] || [],
-          }))
-          .filter((entry) => entry.fileItems.length > 0);
-        const skippedFileCount = stagedFilePaths.length - publishCandidates.length;
+          }));
+        const skippedFileCount = 0;
 
-        if (publishCandidates.length === 0) {
-          toast.error("No valid staged file data found");
-          return { successCount: 0, failedCount: stagedFilePaths.length, publishedFiles: [] };
+        const publishedFileSet = new Set(
+          publishCandidates.map((candidate) => candidate.filePath)
+        );
+        const relevantMediaOperations = pendingMediaOperations.filter((operation) =>
+          publishedFileSet.has(operation.sourceFilePath)
+        );
+        const mediaUploadMap = new Map<string, string>();
+        const mediaDeleteSet = new Set<string>();
+
+        relevantMediaOperations.forEach((operation) => {
+          if (operation.action === "upload" && operation.base64Content) {
+            mediaUploadMap.set(operation.filePath, operation.base64Content);
+            mediaDeleteSet.delete(operation.filePath);
+            return;
+          }
+          if (operation.action === "delete") {
+            if (mediaUploadMap.has(operation.filePath)) {
+              mediaUploadMap.delete(operation.filePath);
+              return;
+            }
+            mediaDeleteSet.add(operation.filePath);
+          }
+        });
+
+        const stagedPublishContentByFile: Record<string, unknown> = {};
+        publishCandidates.forEach((entry) => {
+          stagedPublishContentByFile[entry.filePath] = buildPublishableContentForFile(
+            entry.filePath,
+            entry.fileItems,
+            isArrayFileByPath
+          );
+        });
+
+        if (mediaDeleteSet.size > 0) {
+          const publishContentByFile: Record<string, unknown> = {
+            ...stagedPublishContentByFile,
+          };
+          let canSafelyDeleteMedia = true;
+
+          for (const cmsFilePath of Object.values(CMS_FILES)) {
+            if (Object.prototype.hasOwnProperty.call(publishContentByFile, cmsFilePath)) {
+              continue;
+            }
+
+            const remoteData = await fetchCMSFile(cmsFilePath, password);
+            if (!remoteData.success) {
+              canSafelyDeleteMedia = false;
+              break;
+            }
+            publishContentByFile[cmsFilePath] = (
+              remoteData.data as Record<string, unknown>
+            ).content;
+          }
+
+          if (!canSafelyDeleteMedia) {
+            mediaDeleteSet.clear();
+            toast.warning(
+              "Skipped media deletions because latest remote content could not be verified safely."
+            );
+          } else {
+            Array.from(mediaDeleteSet).forEach((repositoryPath) => {
+              const publicPath = toPublicUploadPath(repositoryPath);
+              const referenceCount = Object.values(publishContentByFile).reduce(
+                (total: number, content) =>
+                  total + countManagedUploadPathReferences(content, publicPath),
+                0
+              );
+
+              if (referenceCount > 0) {
+                mediaDeleteSet.delete(repositoryPath);
+              }
+            });
+          }
         }
 
         const payload: JSONBatchUpdatePayload = {
           files: publishCandidates.map((entry) => ({
             filePath: entry.filePath,
-            content: JSON.stringify(
-              buildPublishableContentForFile(
-                entry.filePath,
-                entry.fileItems,
-                isArrayFileByPath
-              ),
-              null,
-              2
-            ),
+            content: JSON.stringify(stagedPublishContentByFile[entry.filePath], null, 2),
           })),
+          mediaUploads: Array.from(mediaUploadMap.entries()).map(
+            ([filePath, base64Content]) => ({
+              filePath,
+              base64Content,
+            })
+          ),
+          mediaDeletes: Array.from(mediaDeleteSet),
           password,
         };
 
@@ -1476,6 +1576,7 @@ export function useAdminCMS() {
             setDirtyFiles((prev) => ({ ...prev, [entry.filePath]: false }));
             setStagedFiles((prev) => ({ ...prev, [entry.filePath]: false }));
           });
+          clearPendingMediaForFiles(Array.from(publishedFileSet));
         }
 
         const publishedPaths = Object.keys(publishedSnapshots);
@@ -1507,7 +1608,13 @@ export function useAdminCMS() {
         setIsLoading(false);
       }
     },
-    [isArrayFileByPath, itemsByFile, stagedFiles]
+    [
+      clearPendingMediaForFiles,
+      isArrayFileByPath,
+      itemsByFile,
+      pendingMediaOperations,
+      stagedFiles,
+    ]
   );
 
   const resetDraftChanges = useCallback(
@@ -1533,6 +1640,9 @@ export function useAdminCMS() {
 
       setDirtyFiles((prev) => ({ ...prev, [filePath]: restoreAsQueued }));
       setStagedFiles((prev) => ({ ...prev, [filePath]: restoreAsQueued }));
+      if (!restoreAsQueued) {
+        clearPendingMediaForFiles([filePath]);
+      }
 
       toast.success(
         restoreAsQueued
@@ -1541,7 +1651,7 @@ export function useAdminCMS() {
       );
       return true;
     },
-    [resetSnapshotQueuedByFile, resetSnapshotsByFile, selectedFile]
+    [clearPendingMediaForFiles, resetSnapshotQueuedByFile, resetSnapshotsByFile, selectedFile]
   );
 
   /**
@@ -1649,7 +1759,7 @@ export function useAdminCMS() {
    * @param password - Admin password
    */
   const deleteItem = useCallback(
-    async (localItemId: string, password: string) => {
+    async (localItemId: string, _password: string) => {
       if (!selectedFile) return;
 
       const item = items.find((i: DataItem) => i[LOCAL_ITEM_ID_KEY] === localItemId);
@@ -1657,19 +1767,9 @@ export function useAdminCMS() {
 
       const imagePaths = collectManagedUploadPaths(item);
       if (imagePaths.length > 0) {
-        await Promise.all(
-          imagePaths.map(async (imagePath) => {
-            const referencesInRemovedItem = countManagedUploadPathReferences(
-              item,
-              imagePath
-            );
-            await deleteManagedUploadIfUnreferenced(
-              imagePath,
-              password,
-              referencesInRemovedItem
-            );
-          })
-        );
+        imagePaths.forEach((imagePath) => {
+          queueMediaDelete(selectedFile, imagePath);
+        });
       }
 
       setItems((prevItems: DataItem[]) => {
@@ -1683,7 +1783,7 @@ export function useAdminCMS() {
 
       toast.success("Item deleted");
     },
-    [deleteManagedUploadIfUnreferenced, items, markFilesDirty, selectedFile]
+    [items, markFilesDirty, queueMediaDelete, selectedFile]
   );
 
   /**
@@ -1698,7 +1798,7 @@ export function useAdminCMS() {
       localItemId: string,
       fieldPath: (string | number)[],
       file: File,
-      password: string,
+      _password: string,
       previousImagePath?: string
     ) => {
       if (!selectedFile) {
@@ -1733,11 +1833,7 @@ export function useAdminCMS() {
             updateItemField(localItemId, fieldPath, reusedImagePath);
 
             if (isManagedUploadPath(previousImagePath)) {
-              deleteManagedUploadIfUnreferenced(previousImagePath, password, 1).catch(
-                (error) => {
-                  console.error("Failed to remove previous image:", error);
-                }
-              );
+              queueMediaDelete(selectedFile, previousImagePath);
             }
           }
 
@@ -1759,47 +1855,26 @@ export function useAdminCMS() {
 
         const base64Content = await fileToBase64(uploadFile);
         const uploadFolder = resolveImageUploadFolder(selectedFile, fieldPath);
-        const payload: ImageUploadPayload = {
-          fileName: generateDeterministicImageFileName(originalFileHash, file.name),
-          base64Content,
-          folder: uploadFolder || undefined,
-          password,
-        };
-
-        const response = await fetch("/api/upload-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        const data = (await response.json()) as APIResponse;
-
-        if (!data.success) {
-          toast.error(data.error || "Failed to upload image");
-          return;
-        }
-
-        const imagePath = (data.data as Record<string, unknown>).path as string;
+        const fileName = generateDeterministicImageFileName(originalFileHash, file.name);
+        const folderSegment = uploadFolder ? `/${uploadFolder}` : "";
+        const imagePath = `/uploads${folderSegment}/${fileName}`;
+        queueMediaUpload(selectedFile, imagePath, base64Content);
         updateItemField(localItemId, fieldPath, imagePath);
 
         if (
           isManagedUploadPath(previousImagePath) &&
           previousImagePath !== imagePath
         ) {
-          deleteManagedUploadIfUnreferenced(previousImagePath, password, 1).catch(
-            (error) => {
-              console.error("Failed to remove previous image:", error);
-            }
-          );
+          queueMediaDelete(selectedFile, previousImagePath);
         }
 
         if (isVideoUpload) {
-          toast.success("Media uploaded successfully");
+          toast.success("Media added to publish queue");
         } else {
           toast.success(
             compressionRatio > 0
-              ? `Image uploaded successfully (${compressionRatio.toFixed(1)}% smaller)`
-              : "Image uploaded successfully"
+              ? `Image queued (${compressionRatio.toFixed(1)}% smaller)`
+              : "Image added to publish queue"
           );
         }
       } catch (error) {
@@ -1810,8 +1885,9 @@ export function useAdminCMS() {
       }
     },
     [
-      deleteManagedUploadIfUnreferenced,
       getEffectiveItemsByFile,
+      queueMediaDelete,
+      queueMediaUpload,
       selectedFile,
       updateItemField,
     ]
@@ -1821,17 +1897,19 @@ export function useAdminCMS() {
     async (
       localItemId: string,
       fieldPath: (string | number)[],
-      password: string,
+      _password: string,
       currentImagePath?: string
     ) => {
       if (isManagedUploadPath(currentImagePath)) {
-        await deleteManagedUploadIfUnreferenced(currentImagePath, password, 1);
+        if (selectedFile) {
+          queueMediaDelete(selectedFile, currentImagePath);
+        }
       }
 
       updateItemField(localItemId, fieldPath, "");
       toast.success("Image removed");
     },
-    [deleteManagedUploadIfUnreferenced, updateItemField]
+    [queueMediaDelete, selectedFile, updateItemField]
   );
 
   /**
