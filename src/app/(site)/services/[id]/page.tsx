@@ -144,9 +144,10 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
     getSiteCommonData(),
   ]);
   const services = localizeSiteContent(servicesRaw, siteData.language) as Service[];
+  const sourceService = servicesRaw.find((item) => item.id === params.id);
   const service = services.find((item) => item.id === params.id);
 
-  if (!service) {
+  if (!service || !sourceService) {
     notFound();
   }
 
@@ -286,7 +287,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
                     className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[5px] bg-[var(--site-color-primary)] px-6 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)]"
                     label={getQuoteLabel}
                     number={siteData.adminConfig.contact.whatsapp.number}
-                    serviceTitle={service.title}
+                    serviceTitle={sourceService.title}
                   />
                   <p className="mt-4 text-center text-sm text-[var(--site-color-muted-foreground)]">
                     {callDirectlyLabel}

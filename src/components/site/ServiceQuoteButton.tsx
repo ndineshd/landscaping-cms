@@ -30,11 +30,9 @@ export function ServiceQuoteButton({
   const href = useMemo(() => {
     const safeNumber = sanitizePhoneNumber(number);
     const lines = [
-      "Hi GrowWell Team,",
-      `I would like a quote for "${serviceTitle}".`,
+      `Hi, I'm interested in ${serviceTitle} service.`,
+      "Can you share pricing and next steps?",
       serviceUrl ? `Service link: ${serviceUrl}` : "",
-      "Please share pricing, timeline, and next steps.",
-      "Thank you.",
     ].filter(Boolean);
     const message = lines.join("\n");
 
