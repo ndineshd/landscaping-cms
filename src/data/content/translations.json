@@ -33,7 +33,9 @@
       "visitUs": "Visit Us",
       "getInTouchSectionTitle": "Get in Touch",
       "mapAction": "Go to location",
-      "followUs": "Follow Us on Instagram"
+      "followUs": "Follow Us on Instagram",
+      "timingsTitle": "Business Hours",
+      "businessHours": "Business Hours"
     },
     "footer": {
       "contactTitle": "Contact",
@@ -96,7 +98,9 @@
       "visitUs": "మా వద్దకు రండి",
       "getInTouchSectionTitle": "సంప్రదించండి",
       "mapAction": "నిర్దేశిత స్థానాన్ని తెరవండి",
-      "followUs": "ఇన్‌స్టాగ్రామ్‌లో ఫాలో అవ్వండి"
+      "followUs": "ఇన్‌స్టాగ్రామ్‌లో ఫాలో అవ్వండి",
+      "timingsTitle": "\u0c35\u0c4d\u0c2f\u0c3e\u0c2a\u0c3e\u0c30 \u0c38\u0c2e\u0c2f\u0c3e\u0c32\u0c41",
+      "businessHours": "\u0c35\u0c4d\u0c2f\u0c3e\u0c2a\u0c3e\u0c30 \u0c38\u0c2e\u0c2f\u0c3e\u0c32\u0c41"
     },
     "footer": {
       "contactTitle": "సంప్రదింపు",
@@ -159,7 +163,9 @@
       "visitUs": "எங்களை சந்திக்கவும்",
       "getInTouchSectionTitle": "தொடர்புகொள்ளுங்கள்",
       "mapAction": "குறிப்பிட்ட இடத்தைத் திறக்கவும்",
-      "followUs": "இன்ஸ்டாகிராமில் பின்தொடருங்கள்"
+      "followUs": "இன்ஸ்டாகிராமில் பின்தொடருங்கள்",
+      "timingsTitle": "\u0bb5\u0ba3\u0bbf\u0b95 \u0ba8\u0bc7\u0bb0\u0bae\u0bcd",
+      "businessHours": "\u0bb5\u0ba3\u0bbf\u0b95 \u0ba8\u0bc7\u0bb0\u0bae\u0bcd"
     },
     "footer": {
       "contactTitle": "தொடர்பு",

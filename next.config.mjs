@@ -3,10 +3,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  experimental: {
-    // Server Components external packages
-    serverComponentsExternalPackages: ["mongodb"],
-  },
   webpack(config, { dev }) {
     if (dev) {
       // Optimize file watching for development

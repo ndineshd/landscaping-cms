@@ -1,8 +1,60 @@
+import type { Metadata } from "next";
+
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
 import { ServicesCatalogPage } from "@/components/site/ServicesCatalogPage";
 import { getActiveServices } from "@/lib/config-loader";
+import { ROUTES } from "@/lib/constants";
+import {
+  buildPageAlternates,
+  parseKeywords,
+  resolveMetadataBase,
+  toAbsoluteUrl,
+} from "@/lib/seo";
 import { getSiteCommonData, localizeSiteContent } from "@/lib/site-data";
 import type { Service } from "@/types/content";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const siteData = await getSiteCommonData();
+  const { adminConfig, language, translations } = siteData;
+  const servicesCopy = translations.services || {};
+  const metadataBase = resolveMetadataBase();
+  const alternates = buildPageAlternates(
+    ROUTES.SERVICES,
+    language.currentLanguageCode,
+    language.languageCodes,
+    metadataBase
+  );
+  const pageTitle = servicesCopy.title || "Our Services";
+  const title = `${pageTitle} | ${adminConfig.site.name}`;
+  const description =
+    servicesCopy.subtitle ||
+    adminConfig.seo.description;
+  const keywords = parseKeywords(adminConfig.seo.keywords);
+  const ogImage = adminConfig.seo.ogImage
+    ? toAbsoluteUrl(adminConfig.seo.ogImage, metadataBase)
+    : undefined;
+  const canonicalUrl = String(alternates.canonical || "");
+
+  return {
+    alternates,
+    description,
+    keywords,
+    openGraph: {
+      description,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      title,
+      type: "website",
+      url: canonicalUrl,
+    },
+    title,
+    twitter: {
+      card: "summary_large_image",
+      description,
+      images: ogImage ? [ogImage] : undefined,
+      title,
+    },
+  };
+}
 
 export default async function ServicesPage() {
   const [servicesRaw, siteData] = await Promise.all([

@@ -340,24 +340,13 @@ export function SiteHeader({
         )}
       >
         <div className="mx-auto flex h-[76px] w-full max-w-[1280px] items-center justify-between px-4 md:px-8">
-          <div className="md:hidden">
-            <SiteLogo
-              companyName={companyName}
-              homeHref={homeHref}
-              logo={logo}
-              logoText={logoText}
-              siteName={siteName}
-            />
-          </div>
-          <div className="hidden md:block">
-            <SiteLogo
-              companyName={companyName}
-              homeHref={homeHref}
-              logo={logo}
-              logoText={logoText}
-              siteName={siteName}
-            />
-          </div>
+          <SiteLogo
+            companyName={companyName}
+            homeHref={homeHref}
+            logo={logo}
+            logoText={logoText}
+            siteName={siteName}
+          />
           <button
             aria-controls="mobile-nav"
             aria-expanded={isMenuOpen}

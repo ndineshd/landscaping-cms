@@ -14,6 +14,7 @@ import {
   WavesLadder,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
@@ -24,6 +25,12 @@ import { ServiceQuoteButton } from "@/components/site/ServiceQuoteButton";
 import { getActiveServices } from "@/lib/config-loader";
 import { ROUTES } from "@/lib/constants";
 import { getContactCollections } from "@/lib/contact-utils";
+import {
+  buildPageAlternates,
+  parseKeywords,
+  resolveMetadataBase,
+  toAbsoluteUrl,
+} from "@/lib/seo";
 import { createLocalizedPath } from "@/lib/site-i18n";
 import { getSiteCommonData, localizeSiteContent } from "@/lib/site-data";
 import type { Service } from "@/types/content";
@@ -63,15 +70,84 @@ function resolveFeatureText(feature: string | { description?: string; title: str
   return feature.description ? `${feature.title} - ${feature.description}` : feature.title;
 }
 
-export default async function ServiceDetailPage({ params }: ServiceDetailPageProps) {
+export async function generateMetadata({
+  params,
+}: ServiceDetailPageProps): Promise<Metadata> {
   const [servicesRaw, siteData] = await Promise.all([
     getActiveServices(),
     getSiteCommonData(),
   ]);
   const services = localizeSiteContent(servicesRaw, siteData.language) as Service[];
   const service = services.find((item) => item.id === params.id);
+  const metadataBase = resolveMetadataBase();
 
   if (!service) {
+    return {
+      robots: {
+        follow: false,
+        index: false,
+      },
+      title: `Service Not Found | ${siteData.adminConfig.site.name}`,
+    };
+  }
+
+  const routePath = `${ROUTES.SERVICE_DETAIL}/${service.id}`;
+  const alternates = buildPageAlternates(
+    routePath,
+    siteData.language.currentLanguageCode,
+    siteData.language.languageCodes,
+    metadataBase
+  );
+  const title = `${service.title} | ${siteData.adminConfig.site.name}`;
+  const description =
+    service.shortDescription ||
+    service.description ||
+    siteData.adminConfig.seo.description;
+  const baseKeywords = parseKeywords(siteData.adminConfig.seo.keywords) || [];
+  const keywords = Array.from(
+    new Set([
+      ...baseKeywords,
+      service.title,
+      service.id,
+    ])
+  );
+  const previewImage = service.image || siteData.adminConfig.seo.ogImage;
+  const ogImage = previewImage
+    ? toAbsoluteUrl(previewImage, metadataBase)
+    : undefined;
+  const canonicalUrl = String(alternates.canonical || "");
+
+  return {
+    alternates,
+    description,
+    keywords,
+    openGraph: {
+      description,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      title,
+      type: "article",
+      url: canonicalUrl,
+    },
+    title,
+    twitter: {
+      card: "summary_large_image",
+      description,
+      images: ogImage ? [ogImage] : undefined,
+      title,
+    },
+  };
+}
+
+export default async function ServiceDetailPage({ params }: ServiceDetailPageProps) {
+  const [servicesRaw, siteData] = await Promise.all([
+    getActiveServices(),
+    getSiteCommonData(),
+  ]);
+  const services = localizeSiteContent(servicesRaw, siteData.language) as Service[];
+  const sourceService = servicesRaw.find((item) => item.id === params.id);
+  const service = services.find((item) => item.id === params.id);
+
+  if (!service || !sourceService) {
     notFound();
   }
 
@@ -211,7 +287,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
                     className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-[5px] bg-[var(--site-color-primary)] px-6 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)]"
                     label={getQuoteLabel}
                     number={siteData.adminConfig.contact.whatsapp.number}
-                    serviceTitle={service.title}
+                    serviceTitle={sourceService.title}
                   />
                   <p className="mt-4 text-center text-sm text-[var(--site-color-muted-foreground)]">
                     {callDirectlyLabel}
