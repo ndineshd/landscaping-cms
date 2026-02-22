@@ -1,0 +1,201 @@
+{
+  "site": {
+    "name": "GrowWell Landscapes",
+    "companyName": "GrowWell Landscapes Pvt Ltd",
+    "tagline": "Professional landscaping services",
+    "description": "Transforming outdoor spaces into living works of art. Chennai's trusted experts in terraces, gardens, and sustainable landscaping since 2010.",
+    "logo": {
+      "displayMode": "image-only",
+      "type": "image",
+      "imageUrl": "/uploads/site/site/img-1771472600648.jpeg",
+      "text": "GW",
+      "showText": false,
+      "imageObjectFit": "contain",
+      "imageBlendMode": "multiply",
+      "imageWidth": "400",
+      "imageHeight": "70",
+      "imageMobileWidth": "220",
+      "imageMobileHeight": "40"
+    },
+    "defaultLanguage": "en",
+    "languages": [
+      {
+        "code": "en",
+        "name": "English"
+      },
+      {
+        "code": "tel",
+        "name": "తెలుగు"
+      },
+      {
+        "code": "ta",
+        "name": "தமிழ்"
+      }
+    ],
+    "availableLanguages": [
+      "en",
+      "tel",
+      "ta"
+    ],
+    "companyName_tel": "GrowWell Landscapes Pvt Ltd",
+    "companyName_ta": "GrowWell Landscapes Pvt Ltd",
+    "tagline_tel": "వృత్తిపరమైన ల్యాండ్‌స్కేపింగ్ సేవలు",
+    "tagline_ta": "தொழில்முறை இயற்கையை ரசித்தல் சேவைகள்",
+    "description_tel": "బయటి ప్రదేశాలను జీవంతో నిండిన కళాఖండాలుగా మలుస్తున్నాం. 2010 నుండి చెన్నైలో టెర్రస్, తోటలు మరియు సస్టైనబుల్ ల్యాండ్‌స్కేపింగ్‌లో నమ్మకమైన నిపుణులు.",
+    "description_ta": "வெளிப்புற இடங்களை வாழும் கலைப் படைப்புகளாக மாற்றுதல். 2010 முதல் மொட்டை மாடிகள், தோட்டங்கள் மற்றும் நிலையான நிலத்தோற்ற அலங்காரத்தில் சென்னையின் நம்பகமான நிபுணர்கள்."
+  },
+  "seo": {
+    "title": "GrowWell Landscapes - Professional Landscaping Services in Chennai",
+    "description": "Transform your outdoor spaces with GrowWell Landscapes. Expert terracing, lawn design, vertical gardens & maintenance services in Chennai since 2010.",
+    "keywords": "landscaping, terrace garden, lawn maintenance, vertical gardens, Chennai landscaping, garden design",
+    "favicon": "/uploads/site/site/img-1771472600648.jpeg",
+    "ogImage": "/uploads/img-42cbbe6272f979493604cba8effa02a7.jpeg",
+    "title_ta": "க்ரோவெல் லேண்ட்ஸ்கேப்ஸ் - சென்னையில் தொழில்முறை லேண்ட்ஸ்கேப்பிங் சேவைகள்",
+    "title_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్‌లు - చెన్నైలో ప్రొఫెషనల్ ల్యాండ్‌స్కేపింగ్ సేవలు",
+    "description_ta": "வெளிப்புற இடங்களை வாழும் கலைப் படைப்புகளாக மாற்றுதல். 2010 முதல் மொட்டை மாடிகள், தோட்டங்கள் மற்றும் நிலையான நிலத்தோற்ற அலங்காரத்தில் சென்னையின் நம்பகமான நிபுணர்கள்.",
+    "description_tel": "బయటి ప్రదేశాలను జీవంతో నిండిన కళాఖండాలుగా మలుస్తున్నాం. 2010 నుండి చెన్నైలో టెర్రస్, తోటలు మరియు సస్టైనబుల్ ల్యాండ్‌స్కేపింగ్‌లో నమ్మకమైన నిపుణులు."
+  },
+  "theme": {
+    "colors": {
+      "primary": "#48a649",
+      "primaryHover": "#3d8c3e",
+      "secondary": "#6fbf73",
+      "background": "#ffffff",
+      "foreground": "#1a1a1a",
+      "muted": "#f5f5f5",
+      "mutedForeground": "#6b7280",
+      "accent": "#e8f5e9",
+      "border": "#e5e7eb"
+    },
+    "fonts": {
+      "heading": "'Montserrat', sans-serif",
+      "body": "'Inter', sans-serif"
+    },
+    "customCss": ""
+  },
+  "contact": {
+    "phone": "+91 9500836544",
+    "email": "support@growWell-landscape.com",
+    "address": "Chennai, Tamil Nadu",
+    "location": {
+      "name": "GrowWell Landscapes - Landscape Contractor",
+      "name_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్స్ - ల్యాండ్‌స్కేప్ కాంట్రాక్టర్",
+      "url": "https://maps.app.goo.gl/zmCRae9YmHq5jEgEA",
+      "name_ta": "GrowWell Landscapes - Landscape Contractor"
+    },
+    "whatsapp": {
+      "number": "919384747150",
+      "defaultMessage": "Hi, I'm interested in your landscaping services. Can you help me?",
+      "defaultMessage_tel": "హాయ్, మీ ల్యాండ్‌స్కేపింగ్ సేవలపై నాకు ఆసక్తి ఉంది. దయచేసి సహాయం చేస్తారా?",
+      "defaultMessage_ta": "Hi, I'm interested in your landscaping services. Can you help me?"
+    },
+    "floatingContact": {
+      "enabled": true,
+      "showWhatsApp": true,
+      "showEmail": false
+    },
+    "address_tel": "Chennai, Tamil Nadu",
+    "address_ta": "Chennai, Tamil Nadu",
+    "phoneNumbers": [
+      "+91 9384747150",
+      "+91 9500836544"
+    ],
+    "emails": [
+      "jegan@growwell-landscape.com"
+    ],
+    "addresses": [
+      "Chennai, Tamil Nadu"
+    ],
+    "timings": [
+      "Monday - Saturday: 9:00 AM - 6:00 PM",
+      "Sunday: Closed"
+    ],
+    "locations": [
+      {
+        "name": "GrowWell Landscapes - Landscape Contractor",
+        "name_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్స్ - ల్యాండ్‌స్కేప్ కాంట్రాక్టర్",
+        "url": "https://maps.app.goo.gl/zmCRae9YmHq5jEgEA",
+        "name_ta": "GrowWell Landscapes - Landscape Contractor"
+      }
+    ]
+  },
+  "socialMedia": [
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "icon": "instagram",
+      "url": "https://instagram.com/greenformula_landscapers",
+      "enabled": true
+    }
+  ],
+  "hero": {
+    "title": "Welcome to GrowWell Landscapes",
+    "subtitle": "Professional landscaping services",
+    "description": "Transforming Chennai's outdoors into living sanctuaries.",
+    "ctaText": "View Services",
+    "ctaLink": "/services",
+    "images": {
+      "desktop": "/uploads/img-42cbbe6272f979493604cba8effa02a7.jpeg",
+      "mobile": "/uploads/img-42cbbe6272f979493604cba8effa02a7.jpeg"
+    },
+    "title_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్స్‌కు స్వాగతం",
+    "subtitle_tel": "వృత్తిపరమైన ల్యాండ్‌స్కేపింగ్ సేవలు",
+    "description_tel": "చెన్నై బహిరంగ ప్రదేశాలను జీవంతో నిండిన శాంతిమయ ప్రదేశాలుగా మలుస్తున్నాం.",
+    "ctaText_tel": "సేవలను చూడండి",
+    "ctaLink_tel": "/services",
+    "title_ta": "GrowWell Landscapes-க்கு வரவேற்கிறோம்",
+    "subtitle_ta": "தொழில்முறை லேண்ட்ஸ்கேப்பிங் சேவைகள்",
+    "description_ta": "சென்னையின் வெளிப்புற இடங்களை உயிருடன் கூடிய அமைதியான இடங்களாக மாற்றுகிறோம்.",
+    "ctaText_ta": "சேவைகளை பார்க்க",
+    "ctaLink_ta": "/services"
+  },
+  "about": {
+    "ctaLink": "/contact",
+    "ctaText": "Get in Touch",
+    "features": [
+      {
+        "title": "Expert Landscape Design",
+        "description": "Professional design consultation and planning",
+        "title_tel": "నిపుణుల ల్యాండ్‌స్కేప్ డిజైన్",
+        "description_tel": "ప్రొఫెషనల్ డిజైన్ సలహా మరియు ప్రణాళిక",
+        "title_ta": "நிபுணர் லேண்ட்ஸ்கேப் வடிவமைப்பு",
+        "description_ta": "தொழில்முறை வடிவமைப்பு ஆலோசனை மற்றும் திட்டமிடல்"
+      },
+      {
+        "title": "Sustainable Practices",
+        "description": "Eco-friendly solutions for lasting beauty",
+        "title_tel": "సస్టైనబుల్ విధానాలు",
+        "description_tel": "దీర్ఘకాలిక అందం కోసం పర్యావరణానుకూల పరిష్కారాలు",
+        "title_ta": "நிலைத்தன்மை நடைமுறைகள்",
+        "description_ta": "நீடித்த அழகிற்கு சுற்றுச்சூழல் நட்பு தீர்வுகள்"
+      },
+      {
+        "title": "Premium Quality Plants",
+        "description": "Carefully selected plants for optimal growth",
+        "title_tel": "ప్రీమియం నాణ్యత గల మొక్కలు",
+        "description_tel": "ఉత్తమ పెరుగుదలకు జాగ్రత్తగా ఎంపిక చేసిన మొక్కలు",
+        "title_ta": "உயர்தர தாவரங்கள்",
+        "description_ta": "சிறந்த வளர்ச்சிக்காக கவனமாக தேர்ந்தெடுக்கப்பட்ட தாவரங்கள்"
+      },
+      {
+        "title": "Dedicated Maintenance Team",
+        "description": "Regular care to keep your garden thriving",
+        "title_tel": "అంకితభావంతో పనిచేసే నిర్వహణ బృందం",
+        "description_tel": "మీ తోట ఎప్పుడూ అందంగా ఉండేందుకు నిరంతర సంరక్షణ",
+        "title_ta": "அர்ப்பணிப்பு கொண்ட பராமரிப்பு குழு",
+        "description_ta": "உங்கள் தோட்டம் செழித்து வளர நிரந்தர பராமரிப்பு"
+      }
+    ],
+    "image": "/uploads/img-42cbbe6272f979493604cba8effa02a7.jpeg",
+    "title": "Transforming Chennai's Terraces and Landscapes Since 2010",
+    "description": "We believe outdoor spaces should be as comfortable and beautiful as indoor living areas. Our skilled team of horticulturists, designers, and maintenance experts work together to create sustainable, stunning landscapes that enhance your property value and quality of life.",
+    "ctaLink_tel": "/contact",
+    "ctaText_tel": "సంప్రదించండి",
+    "title_tel": "2010 నుండి చెన్నై టెర్రస్‌లు మరియు ల్యాండ్‌స్కేప్‌లను రూపాంతరం చేస్తున్నాం",
+    "description_tel": "బయటి ప్రదేశాలు కూడా ఇండోర్ స్థలాల్లా సౌకర్యవంతంగా మరియు అందంగా ఉండాలని మేము నమ్ముతున్నాం. మా హార్టికల్చర్ నిపుణులు, డిజైనర్లు, నిర్వహణ బృందం కలిసి మీ ఆస్తి విలువను మరియు జీవన నాణ్యతను పెంచే స్థిరమైన, అద్భుతమైన ల్యాండ్‌స్కేప్‌లను సృష్టిస్తారు.",
+    "ctaLink_ta": "/contact",
+    "ctaText_ta": "தொடர்புகொள்ளுங்கள்",
+    "title_ta": "2010 முதல் சென்னையின் டெரஸ் மற்றும் லேண்ட்ஸ்கேப்புகளை மாற்றி வருகிறோம்",
+    "description_ta": "வெளிப்புற இடங்களும் உள் வாழும் இடங்களைப் போலவே வசதியாகவும் அழகாகவும் இருக்க வேண்டும் என்று நாங்கள் நம்புகிறோம். எங்கள் தோட்டக்கலை நிபுணர்கள், வடிவமைப்பாளர்கள் மற்றும் பராமரிப்பு நிபுணர்கள் இணைந்து உங்கள் சொத்து மதிப்பையும் வாழ்க்கை தரத்தையும் உயர்த்தும் நிலையான, அழகிய லேண்ட்ஸ்கேப்புகளை உருவாக்குகின்றனர்."
+  }
+}

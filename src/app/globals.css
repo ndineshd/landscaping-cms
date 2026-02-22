@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base resets and defaults */
+:root {
+  --bg: #f8fafc;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased font-sans;
+}
+
+.site-theme {
+  background-color: var(--site-color-background);
+  color: var(--site-color-foreground);
+  font-family: var(--site-font-body);
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+.site-heading {
+  font-family: var(--site-font-heading);
+}
+
+.site-logo-badge {
+  width: var(--logo-width-desktop, 36px);
+  height: var(--logo-height-desktop, 36px);
+}
+
+@media (max-width: 640px) {
+  .site-logo-badge {
+    width: var(--logo-width-mobile, var(--logo-width-desktop, 36px));
+    height: var(--logo-height-mobile, var(--logo-height-desktop, 36px));
+  }
+}
+
+/* Utility tweaks for the admin UI */
+button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Keep scroll behavior but hide visible scrollbars */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.site-animate-fade-up {
+  animation: site-fade-up 0.7s ease-out both;
+}
+
+@keyframes site-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.site-reveal {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+  transition:
+    opacity 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.site-reveal-left {
+  transform: translate3d(-28px, 0, 0);
+}
+
+.site-reveal-right {
+  transform: translate3d(28px, 0, 0);
+}
+
+.site-reveal-zoom {
+  transform: scale(0.96);
+}
+
+.site-reveal-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-reveal,
+  .site-reveal-left,
+  .site-reveal-right,
+  .site-reveal-zoom {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

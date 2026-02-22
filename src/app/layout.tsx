@@ -1,4 +1,6 @@
+import "./globals.css";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "Landscaping CMS",
@@ -10,8 +12,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const languageFromHeader = headers().get("x-site-lang");
+  const htmlLanguage = (languageFromHeader || "en").trim().toLowerCase() || "en";
+
   return (
-    <html lang="en">
+    <html lang={htmlLanguage}>
       <body>{children}</body>
     </html>
   );

@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Landscaping CMS
 
-## Getting Started
+Next.js CMS + website for landscaping businesses.
 
-First, run the development server:
+## Local development
+
+1. Copy `.env.example` to `.env.local`.
+2. Fill required values.
+3. Run:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required environment variables (Vercel)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set these in Vercel Project Settings -> Environment Variables:
 
-## Learn More
+- `ADMIN_PASSWORD`: password used to access and publish from `/admin`.
+- `GITHUB_TOKEN`: GitHub PAT with repo write access.
+- `GITHUB_OWNER`: GitHub username/org.
+- `GITHUB_REPO`: repository name.
+- `GITHUB_BRANCH`: branch used for CMS commits (usually `main`).
+- `CONTENT_CACHE_TTL_SECONDS` (optional): runtime cache TTL for site content. Default is `30`.
 
-To learn more about Next.js, take a look at the following resources:
+## Exact CMS publish flow on Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Open `/admin` on your deployed domain.
+2. Sign in using `ADMIN_PASSWORD`.
+3. Edit content, then publish.
+4. CMS API (`/api/update-json`, `/api/upload-image`, `/api/delete-image`) writes directly to GitHub on the configured branch.
+5. Public site reads content from GitHub at runtime (with short server cache), so content updates propagate without waiting for static bundled JSON.
+6. If Vercel is connected to the same repo/branch, GitHub commit also triggers a fresh deployment automatically.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Important wiring requirement
 
-## Deploy on Vercel
+For consistent behavior, use the same repository + branch in both:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Vercel Git integration
+- CMS GitHub env vars (`GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_BRANCH`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+If they point to different branches/repos, CMS updates may commit successfully but not appear on your deployed site.
+
+## Security behavior
+
+- CMS read and write endpoints require `ADMIN_PASSWORD`.
+- Admin UI only grants access after a protected server read succeeds.
+
+## Production checks
+
+After deployment:
+
+1. Open `/admin`, sign in, change one text field, publish.
+2. Verify new commit appears in GitHub.
+3. Verify updated content appears on live site.
+4. If not, verify env vars and repo/branch alignment in Vercel.
