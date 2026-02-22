@@ -1,4 +1,4 @@
-import { ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 
 import { ContactLocationMap } from "@/components/site/ContactLocationMap";
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
@@ -75,7 +75,8 @@ export default async function ContactPage() {
   const { adminConfig } = siteData;
   const contactCopy = siteData.translations.contact || {};
   const getInTouchSectionTitle = contactCopy.getInTouchSectionTitle || contactCopy.title || "Get in Touch";
-  const mapActionLabel = contactCopy.mapAction || "Go to configured location";
+  const mapActionLabel = contactCopy.mapAction || "Go to location";
+  const timingsHeading = contactCopy.timingsTitle || contactCopy.businessHours || "Business Hours";
   const startConversationLabel = contactCopy.startConversation || "Start Conversation";
   const visitUsTitle = contactCopy.visitUs || "Visit Us";
   const social = adminConfig.socialMedia.find(
@@ -84,6 +85,7 @@ export default async function ContactPage() {
   const contactCollections = getContactCollections(adminConfig.contact);
   const primaryLocation = contactCollections.locations[0];
   const primaryAddress = contactCollections.addresses[0] || "";
+  const timings = contactCollections.timings;
 
   const whatsappHref = `https://wa.me/${sanitizeWhatsAppNumber(adminConfig.contact.whatsapp.number)}?text=${encodeURIComponent(adminConfig.contact.whatsapp.defaultMessage)}`;
   const mapQuery = primaryLocation?.name
@@ -99,6 +101,9 @@ export default async function ContactPage() {
     address: contactCollections.addresses[index] || contactCollections.addresses[0] || "",
     location: contactCollections.locations[index] || contactCollections.locations[0],
   }));
+  const hasMultipleLocations = locationRows.length > 1;
+  const showLocationMap = !hasMultipleLocations;
+  const showLocationCards = hasMultipleLocations && locationRows.length > 0;
 
   return (
     <main>
@@ -211,15 +216,17 @@ export default async function ContactPage() {
               <ScrollReveal>
                 <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">{visitUsTitle}</h2>
               </ScrollReveal>
-              <ScrollReveal delayMs={90} variant="zoom">
-                <ContactLocationMap
-                  mapEmbedUrl={mapEmbedUrl}
-                  reloadButtonAriaLabel={mapActionLabel}
-                  reloadButtonTitle={mapActionLabel}
-                  title={locationCardTitle}
-                />
-              </ScrollReveal>
-              {locationRows.length > 0 ? (
+              {showLocationMap ? (
+                <ScrollReveal delayMs={90} variant="zoom">
+                  <ContactLocationMap
+                    mapEmbedUrl={mapEmbedUrl}
+                    reloadButtonAriaLabel={mapActionLabel}
+                    reloadButtonTitle={mapActionLabel}
+                    title={locationCardTitle}
+                  />
+                </ScrollReveal>
+              ) : null}
+              {showLocationCards ? (
                 <ScrollReveal delayMs={150}>
                   <div className="mt-4 rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-4">
                     <ul className="space-y-3 text-sm text-[var(--site-color-muted-foreground)]">
@@ -243,6 +250,24 @@ export default async function ContactPage() {
                               </a>
                             ) : null}
                           </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </ScrollReveal>
+              ) : null}
+
+              {timings.length > 0 ? (
+                <ScrollReveal delayMs={190}>
+                  <div className="mt-4 rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-4">
+                    <h3 className="site-heading text-lg font-semibold text-[var(--site-color-foreground)]">
+                      {timingsHeading}
+                    </h3>
+                    <ul className="mt-3 space-y-2 text-sm text-[var(--site-color-muted-foreground)]">
+                      {timings.map((timing, index) => (
+                        <li className="flex items-start gap-2" key={`contact-timing-${index}`}>
+                          <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--site-color-primary)]" />
+                          <span>{timing}</span>
                         </li>
                       ))}
                     </ul>

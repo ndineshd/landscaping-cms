@@ -5,6 +5,7 @@ interface ContactCollections {
   emails: string[];
   locations: LocationInfo[];
   phoneNumbers: string[];
+  timings: string[];
 }
 
 function normalizeString(value: string | undefined): string {
@@ -48,17 +49,41 @@ function dedupeLocations(values: LocationInfo[]): LocationInfo[] {
   return deduped;
 }
 
+function getPreferredStrings(
+  listValues: string[] | undefined,
+  fallbackValue: string
+): string[] {
+  const normalizedList = dedupeStrings(listValues || []);
+  if (normalizedList.length > 0) {
+    return normalizedList;
+  }
+  return dedupeStrings([fallbackValue]);
+}
+
+function getPreferredLocations(
+  listValues: LocationInfo[] | undefined,
+  fallbackValue: LocationInfo
+): LocationInfo[] {
+  const normalizedList = dedupeLocations(listValues || []);
+  if (normalizedList.length > 0) {
+    return normalizedList;
+  }
+  return dedupeLocations([fallbackValue]);
+}
+
 export function getContactCollections(contact: ContactConfig): ContactCollections {
-  const phoneNumbers = dedupeStrings([contact.phone, ...(contact.phoneNumbers || [])]);
-  const emails = dedupeStrings([contact.email, ...(contact.emails || [])]);
-  const addresses = dedupeStrings([contact.address, ...(contact.addresses || [])]);
-  const locations = dedupeLocations([contact.location, ...(contact.locations || [])]);
+  const phoneNumbers = getPreferredStrings(contact.phoneNumbers, contact.phone);
+  const emails = getPreferredStrings(contact.emails, contact.email);
+  const addresses = getPreferredStrings(contact.addresses, contact.address);
+  const timings = dedupeStrings(contact.timings || []);
+  const locations = getPreferredLocations(contact.locations, contact.location);
 
   return {
     addresses,
     emails,
     locations,
     phoneNumbers,
+    timings,
   };
 }
 

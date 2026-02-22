@@ -181,6 +181,8 @@ export interface ContactConfig {
   address: string;
   /** Optional list of physical addresses */
   addresses?: string[];
+  /** Optional business timings/hours */
+  timings?: string[];
   /** Location information with Google Maps link */
   location: LocationInfo;
   /** Optional list of locations with Google Maps links */

@@ -21,7 +21,7 @@
     "description_ta": "டர்ஃபிங்",
     "location_ta": "சென்னை, தமிழ்நாடு",
     "title_ta": "டர்ஃபிங்",
-    "showGallery": true
+    "showGallery": false
   },
   {
     "id": "residential-terrace-garden",
@@ -45,7 +45,7 @@
     "description_ta": "புல்வெளி பகுதி மற்றும் தேர்ந்தெடுக்கப்பட்ட தாவரங்களுடன் ஒரு குடியிருப்பு டெரஸை செழிப்பான பசுமை ஓய்விடமாக மாற்றிய சிறந்த திட்டம்.",
     "location_ta": "சென்னை, தமிழ்நாடு",
     "category_ta": "குடியிருப்பு",
-    "showGallery": true
+    "showGallery": false
   },
   {
     "id": "commercial-corporate-vertical-wall",
@@ -68,7 +68,7 @@
     "description_ta": "நவீன பணியிடம் அழகியலுடன் பசுமையை ஒருங்கிணைக்கும் வகையில் கார்ப்பரேட் அலுவலகத்திற்கான செங்குத்து சுவர் நிறுவல்.",
     "location_ta": "சென்னை, தமிழ்நாடு",
     "category_ta": "வணிக",
-    "showGallery": true
+    "showGallery": false
   },
   {
     "id": "residential-villa-landscape-design",
@@ -80,7 +80,7 @@
     "images": [],
     "completedDate": "2025",
     "sortOrder": 3,
-    "enabled": true,
+    "enabled": false,
     "title_tel": "విల్లా ల్యాండ్‌స్కేప్ డిజైన్",
     "description_tel": "వ్యవస్థీకృత మొక్కల నాటకం మరియు ఓపెన్ లాన్ ట్రాన్సిషన్లతో ప్రీమియం విల్లా కోసం ల్యాండ్‌స్కేప్ అభివృద్ధి.",
     "location_tel": "చెన్నై, తమిళనాడు",
@@ -89,6 +89,6 @@
     "description_ta": "ஒழுங்கமைக்கப்பட்ட தாவர நடவு மற்றும் திறந்த புல்வெளி மாற்றங்களுடன் ஒரு பிரீமியம் வில்லாவிற்கான லேண்ட்ஸ்கேப் மேம்பாடு.",
     "location_ta": "சென்னை, தமிழ்நாடு",
     "category_ta": "குடியிருப்பு",
-    "showGallery": true
+    "showGallery": false
   }
 ]

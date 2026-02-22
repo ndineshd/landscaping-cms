@@ -341,6 +341,64 @@ function normalizeProjectItems(items: DataItem[]): { items: DataItem[]; changed:
   return { items: normalizedItems, changed };
 }
 
+function createFallbackStringArray(value: unknown): string[] {
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  return trimmed ? [trimmed] : [];
+}
+
+function createFallbackLocationArray(value: unknown): Record<string, unknown>[] {
+  if (!isRecord(value)) return [];
+
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const url = typeof value.url === "string" ? value.url.trim() : "";
+  if (!name && !url) return [];
+
+  return [{ ...value, name, url }];
+}
+
+function ensureAdminContactCollections(item: DataItem): { item: DataItem; changed: boolean } {
+  if (!isRecord(item.contact)) {
+    return { item, changed: false };
+  }
+
+  let changed = false;
+  const contact = { ...item.contact };
+
+  if (!Array.isArray(contact.phoneNumbers)) {
+    contact.phoneNumbers = createFallbackStringArray(contact.phone);
+    changed = true;
+  }
+  if (!Array.isArray(contact.emails)) {
+    contact.emails = createFallbackStringArray(contact.email);
+    changed = true;
+  }
+  if (!Array.isArray(contact.addresses)) {
+    contact.addresses = createFallbackStringArray(contact.address);
+    changed = true;
+  }
+  if (!Array.isArray(contact.locations)) {
+    contact.locations = createFallbackLocationArray(contact.location);
+    changed = true;
+  }
+  if (!Array.isArray(contact.timings)) {
+    contact.timings = [];
+    changed = true;
+  }
+
+  if (!changed) {
+    return { item, changed: false };
+  }
+
+  return {
+    item: {
+      ...item,
+      contact,
+    },
+    changed: true,
+  };
+}
+
 function ensureLocalizedAdminConfigItem(
   item: DataItem,
   languageCodes: string[],
@@ -348,6 +406,12 @@ function ensureLocalizedAdminConfigItem(
 ): { item: DataItem; changed: boolean } {
   let changed = false;
   let nextItem = { ...item };
+
+  const normalizedContact = ensureAdminContactCollections(nextItem);
+  if (normalizedContact.changed) {
+    nextItem = normalizedContact.item;
+    changed = true;
+  }
 
   ADMIN_CONFIG_LOCALIZED_SECTIONS.forEach((sectionKey) => {
     const sectionValue = nextItem[sectionKey];

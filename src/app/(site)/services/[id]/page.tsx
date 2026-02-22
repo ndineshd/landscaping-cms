@@ -23,7 +23,7 @@ import { SiteImage } from "@/components/site/SiteImage";
 import { ServiceQuoteButton } from "@/components/site/ServiceQuoteButton";
 import { getActiveServices } from "@/lib/config-loader";
 import { ROUTES } from "@/lib/constants";
-import { getPrimaryPhoneNumber } from "@/lib/contact-utils";
+import { getContactCollections } from "@/lib/contact-utils";
 import { createLocalizedPath } from "@/lib/site-i18n";
 import { getSiteCommonData, localizeSiteContent } from "@/lib/site-data";
 import type { Service } from "@/types/content";
@@ -104,7 +104,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
   const otherServicesHeading = detailCopy.otherServicesTitle || "Other Services";
   const breadcrumbHomeLabel = navCopy.home || detailCopy.breadcrumbHome || "Home";
   const breadcrumbServicesLabel = navCopy.services || detailCopy.breadcrumbServices || "Services";
-  const primaryPhoneNumber = getPrimaryPhoneNumber(siteData.adminConfig.contact);
+  const contactCollections = getContactCollections(siteData.adminConfig.contact);
 
   return (
     <main>
@@ -215,11 +215,20 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
                   />
                   <p className="mt-4 text-center text-sm text-[var(--site-color-muted-foreground)]">
                     {callDirectlyLabel}
-                    <br />
-                    <a className="font-medium text-[var(--site-color-foreground)]" href={`tel:${primaryPhoneNumber.replace(/[^\d+]/g, "")}`}>
-                      {primaryPhoneNumber}
-                    </a>
                   </p>
+                  {contactCollections.phoneNumbers.length > 0 ? (
+                    <div className="mt-2 flex flex-col items-center gap-1 text-center">
+                      {contactCollections.phoneNumbers.map((phone, index) => (
+                        <a
+                          className="font-medium text-[var(--site-color-foreground)]"
+                          href={`tel:${phone.replace(/[^\d+]/g, "")}`}
+                          key={`service-contact-phone-${index}`}
+                        >
+                          {phone}
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </ScrollReveal>
 

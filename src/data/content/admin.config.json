@@ -84,7 +84,7 @@
       "name_ta": "GrowWell Landscapes - Landscape Contractor"
     },
     "whatsapp": {
-      "number": "919500836544",
+      "number": "919384747150",
       "defaultMessage": "Hi, I'm interested in your landscaping services. Can you help me?",
       "defaultMessage_tel": "హాయ్, మీ ల్యాండ్‌స్కేపింగ్ సేవలపై నాకు ఆసక్తి ఉంది. దయచేసి సహాయం చేస్తారా?",
       "defaultMessage_ta": "Hi, I'm interested in your landscaping services. Can you help me?"
@@ -97,13 +97,18 @@
     "address_tel": "Chennai, Tamil Nadu",
     "address_ta": "Chennai, Tamil Nadu",
     "phoneNumbers": [
+      "+91 9384747150",
       "+91 9500836544"
     ],
     "emails": [
-      "support@growWell-landscape.com"
+      "jegan@growwell-landscape.com"
     ],
     "addresses": [
       "Chennai, Tamil Nadu"
+    ],
+    "timings": [
+      "Monday - Saturday: 9:00 AM - 6:00 PM",
+      "Sunday: Closed"
     ],
     "locations": [
       {

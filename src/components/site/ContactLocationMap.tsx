@@ -12,8 +12,8 @@ interface ContactLocationMapProps {
 
 export function ContactLocationMap({
   mapEmbedUrl,
-  reloadButtonAriaLabel = "Go to configured location",
-  reloadButtonTitle = "Go to configured location",
+  reloadButtonAriaLabel = "Go to location",
+  reloadButtonTitle = "Go to location",
   title,
 }: ContactLocationMapProps) {
   const [iframeKey, setIframeKey] = useState(0);

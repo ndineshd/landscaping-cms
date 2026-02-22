@@ -112,6 +112,10 @@ export default function AdminDashboard() {
     "site.defaultLanguage",
     "site.languages",
     "site.availableLanguages",
+    "contact.phone",
+    "contact.email",
+    "contact.address",
+    "contact.location",
   ];
   const knownSiteConfigSectionKeys = new Set<string>(
     SITE_CONFIG_SECTION_ORDER.map((section) => section.key)
