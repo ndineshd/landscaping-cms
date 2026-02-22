@@ -53,7 +53,7 @@ function ProjectCard({ completedDate, description, imagePath, title }: ProjectCa
         ) : null}
         {completedDate ? (
           <p className="text-xs font-medium uppercase tracking-wide text-white/80">
-            Completed: {completedDate}
+            {completedDate}
           </p>
         ) : null}
       </div>

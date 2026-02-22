@@ -4,8 +4,8 @@
     "category": "turfing",
     "completedDate": "2025",
     "description": "turfing",
-    "enabled": false,
-    "image": "",
+    "enabled": true,
+    "image": "/uploads/img-42cbbe6272f979493604cba8effa02a7.jpeg",
     "images": [
       "/uploads/projects/images/img-1771425133524.png",
       "/uploads/site/site/img-1771472600648.jpeg"
