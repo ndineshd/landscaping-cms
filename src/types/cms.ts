@@ -81,6 +81,21 @@ export interface JSONUpdatePayload {
 }
 
 /**
+ * JSON batch update request payload
+ */
+export interface JSONBatchUpdatePayload {
+  /** Files to update in one publish operation */
+  files: Array<{
+    /** File path in repository */
+    filePath: string;
+    /** File content as string */
+    content: string;
+  }>;
+  /** Admin password */
+  password: string;
+}
+
+/**
  * JSON file fetch request payload
  */
 export interface JSONFetchPayload {

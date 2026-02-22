@@ -63,6 +63,7 @@ This repo includes `.github/workflows/vercel-branch-redeploy.yml` with this beha
 
 - Push to `main` -> trigger production redeploy.
 - Push to `dev` -> trigger development redeploy.
+- Pushes with commit message starting with `Upload media:` or `Delete unused media:` are ignored for redeploy hooks.
 
 ### Required GitHub repository secrets
 
@@ -85,3 +86,10 @@ Copy their URLs into the GitHub secrets above.
 If Vercel Git auto-deploy is still enabled for these branches, each push can create duplicate deployments (one from Vercel Git integration + one from GitHub Action hook). Keep only one deployment trigger strategy.
 
 This repo sets `git.deploymentEnabled: false` in `vercel.json`, so direct Git pushes do not trigger Vercel deployments. Deployments are triggered only by the GitHub Action hooks above (`main` -> production, `dev` -> development).
+
+## CMS publish commit behavior
+
+Global Save now publishes staged JSON files in a single Git commit via `/api/update-json-batch`.
+
+- One Global Save with multiple staged content files -> one commit.
+- Media upload/delete still creates separate media commits, but those commits are ignored by deploy-hook workflow rules.

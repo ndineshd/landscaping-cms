@@ -23,7 +23,10 @@ concurrency:
 jobs:
   redeploy-production:
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      !startsWith(github.event.head_commit.message, 'Upload media:') &&
+      !startsWith(github.event.head_commit.message, 'Delete unused media:')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'production')
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +45,10 @@ jobs:
 
   redeploy-development:
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'push' &&
+      github.ref == 'refs/heads/dev' &&
+      !startsWith(github.event.head_commit.message, 'Upload media:') &&
+      !startsWith(github.event.head_commit.message, 'Delete unused media:')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'development')
     runs-on: ubuntu-latest
     steps:

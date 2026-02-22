@@ -19,6 +19,27 @@ interface GitHubConfig {
   branch: string;
 }
 
+interface GitHubGitRefResponse {
+  object: {
+    sha: string;
+  };
+}
+
+interface GitHubGitCommitResponse {
+  sha: string;
+  tree: {
+    sha: string;
+  };
+}
+
+interface GitHubGitBlobResponse {
+  sha: string;
+}
+
+interface GitHubGitTreeResponse {
+  sha: string;
+}
+
 /**
  * GitHub API base URL
  */
@@ -73,6 +94,11 @@ export class GitHubAPI {
       return baseUrl;
     }
     return `${baseUrl}?ref=${encodeURIComponent(this.config.branch)}`;
+  }
+
+  private buildRepositoryUrl(path: string): string {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    return `${GITHUB_API_BASE}/repos/${this.config.owner}/${this.config.repo}${normalizedPath}`;
   }
 
   private normalizePath(filePath: string): string {
@@ -262,6 +288,150 @@ export class GitHubAPI {
       }
       throw error;
     }
+  }
+
+  /**
+   * Create or update multiple files in a single commit
+   * @param updates - Files to update
+   * @param message - Commit message
+   * @returns Commit and file details
+   */
+  async putFilesBatch(
+    updates: Array<{
+      filePath: string;
+      content: string;
+      contentEncoding?: "utf-8" | "base64";
+    }>,
+    message: string
+  ): Promise<{ commitSha: string; files: string[] }> {
+    if (!updates.length) {
+      throw new Error("No file updates were provided");
+    }
+
+    const refUrl = this.buildRepositoryUrl(
+      `/git/ref/heads/${encodeURIComponent(this.config.branch)}`
+    );
+
+    const refResponse = await fetch(refUrl, {
+      headers: this.getHeaders(),
+      cache: "no-store",
+    });
+    if (!refResponse.ok) {
+      throw new Error(
+        `GitHub API error: ${refResponse.status} ${refResponse.statusText}`
+      );
+    }
+    const refData = (await refResponse.json()) as GitHubGitRefResponse;
+    const parentCommitSha = refData.object.sha;
+
+    const commitUrl = this.buildRepositoryUrl(`/git/commits/${parentCommitSha}`);
+    const commitResponse = await fetch(commitUrl, {
+      headers: this.getHeaders(),
+      cache: "no-store",
+    });
+    if (!commitResponse.ok) {
+      throw new Error(
+        `GitHub API error: ${commitResponse.status} ${commitResponse.statusText}`
+      );
+    }
+    const commitData = (await commitResponse.json()) as GitHubGitCommitResponse;
+    const baseTreeSha = commitData.tree.sha;
+
+    const treeEntries: Array<{
+      path: string;
+      mode: "100644";
+      type: "blob";
+      sha: string;
+    }> = [];
+    const resolvedPaths: string[] = [];
+
+    for (const update of updates) {
+      const existingFile = await this.getFile(update.filePath);
+      const resolvedPath = existingFile.path || update.filePath;
+      const blobUrl = this.buildRepositoryUrl("/git/blobs");
+      const blobResponse = await fetch(blobUrl, {
+        method: "POST",
+        headers: this.getHeaders(),
+        cache: "no-store",
+        body: JSON.stringify({
+          content: update.content,
+          encoding: update.contentEncoding || "utf-8",
+        }),
+      });
+      if (!blobResponse.ok) {
+        throw new Error(
+          `GitHub API error: ${blobResponse.status} ${blobResponse.statusText}`
+        );
+      }
+      const blobData = (await blobResponse.json()) as GitHubGitBlobResponse;
+
+      treeEntries.push({
+        path: resolvedPath,
+        mode: "100644",
+        type: "blob",
+        sha: blobData.sha,
+      });
+      resolvedPaths.push(resolvedPath);
+      this.rememberResolvedPath(update.filePath, resolvedPath);
+    }
+
+    const treeUrl = this.buildRepositoryUrl("/git/trees");
+    const treeResponse = await fetch(treeUrl, {
+      method: "POST",
+      headers: this.getHeaders(),
+      cache: "no-store",
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeEntries,
+      }),
+    });
+    if (!treeResponse.ok) {
+      throw new Error(
+        `GitHub API error: ${treeResponse.status} ${treeResponse.statusText}`
+      );
+    }
+    const treeData = (await treeResponse.json()) as GitHubGitTreeResponse;
+
+    const newCommitUrl = this.buildRepositoryUrl("/git/commits");
+    const newCommitResponse = await fetch(newCommitUrl, {
+      method: "POST",
+      headers: this.getHeaders(),
+      cache: "no-store",
+      body: JSON.stringify({
+        message,
+        tree: treeData.sha,
+        parents: [parentCommitSha],
+      }),
+    });
+    if (!newCommitResponse.ok) {
+      throw new Error(
+        `GitHub API error: ${newCommitResponse.status} ${newCommitResponse.statusText}`
+      );
+    }
+    const newCommitData = (await newCommitResponse.json()) as GitHubGitCommitResponse;
+
+    const updateRefUrl = this.buildRepositoryUrl(
+      `/git/refs/heads/${encodeURIComponent(this.config.branch)}`
+    );
+    const updateRefResponse = await fetch(updateRefUrl, {
+      method: "PATCH",
+      headers: this.getHeaders(),
+      cache: "no-store",
+      body: JSON.stringify({
+        sha: newCommitData.sha,
+        force: false,
+      }),
+    });
+    if (!updateRefResponse.ok) {
+      throw new Error(
+        `GitHub API error: ${updateRefResponse.status} ${updateRefResponse.statusText}`
+      );
+    }
+
+    return {
+      commitSha: newCommitData.sha,
+      files: resolvedPaths,
+    };
   }
 }
 

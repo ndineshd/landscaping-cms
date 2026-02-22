@@ -12,7 +12,7 @@ import type {
   APIResponse,
   ImageUploadPayload,
   ImageDeletePayload,
-  JSONUpdatePayload,
+  JSONBatchUpdatePayload,
 } from "@/types/cms";
 import {
   CMS_FILES,
@@ -146,6 +146,24 @@ function stripLocalId(item: DataItem): DataItem {
   const cleaned = { ...item };
   delete cleaned[LOCAL_ITEM_ID_KEY];
   return cleaned;
+}
+
+function buildPublishableContentForFile(
+  filePath: string,
+  fileItems: DataItem[],
+  isArrayFileByPath: Record<string, boolean>
+): unknown {
+  const sanitizedItems = fileItems.map(stripLocalId);
+  const publishableItems =
+    isArrayFileByPath[filePath] === false
+      ? sanitizedItems
+      : sanitizedItems.filter(shouldPersistArrayItem);
+
+  if (isArrayFileByPath[filePath] === false) {
+    return publishableItems[0] || {};
+  }
+
+  return publishableItems;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1120,36 +1138,6 @@ export function useAdminCMS() {
     [getEffectiveItemsByFile]
   );
 
-  const persistFile = useCallback(
-    async (filePath: string, fileItems: DataItem[], password: string): Promise<boolean> => {
-      const sanitizedItems = fileItems.map(stripLocalId);
-      const publishableItems =
-        isArrayFileByPath[filePath] === false
-          ? sanitizedItems
-          : sanitizedItems.filter(shouldPersistArrayItem);
-      const contentToSave =
-        isArrayFileByPath[filePath] === false
-          ? publishableItems[0] || {}
-          : publishableItems;
-
-      const payload: JSONUpdatePayload = {
-        filePath,
-        content: JSON.stringify(contentToSave, null, 2),
-        password,
-      };
-
-      const response = await fetch("/api/update-json", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = (await response.json()) as APIResponse;
-      return data.success;
-    },
-    [isArrayFileByPath]
-  );
-
   /**
    * Load JSON data from GitHub
    * @param filePath - File path to load
@@ -1438,28 +1426,56 @@ export function useAdminCMS() {
 
       setIsLoading(true);
       try {
-        let successCount = 0;
-        let failedCount = 0;
-        const publishedFiles: string[] = [];
+        const publishCandidates = stagedFilePaths
+          .map((filePath) => ({
+            filePath,
+            fileItems: itemsByFile[filePath] || [],
+          }))
+          .filter((entry) => entry.fileItems.length > 0);
+        const skippedFileCount = stagedFilePaths.length - publishCandidates.length;
+
+        if (publishCandidates.length === 0) {
+          toast.error("No valid staged file data found");
+          return { successCount: 0, failedCount: stagedFilePaths.length, publishedFiles: [] };
+        }
+
+        const payload: JSONBatchUpdatePayload = {
+          files: publishCandidates.map((entry) => ({
+            filePath: entry.filePath,
+            content: JSON.stringify(
+              buildPublishableContentForFile(
+                entry.filePath,
+                entry.fileItems,
+                isArrayFileByPath
+              ),
+              null,
+              2
+            ),
+          })),
+          password,
+        };
+
+        const response = await fetch("/api/update-json-batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = (await response.json()) as APIResponse;
+        const isSaved = data.success;
+
+        const successCount = isSaved ? publishCandidates.length : 0;
+        const failedCount = (isSaved ? 0 : publishCandidates.length) + skippedFileCount;
+        const publishedFiles = isSaved
+          ? publishCandidates.map((entry) => entry.filePath)
+          : [];
         const publishedSnapshots: Record<string, DataItem[]> = {};
 
-        for (const filePath of stagedFilePaths) {
-          const fileItems = itemsByFile[filePath] || [];
-          if (fileItems.length === 0) {
-            failedCount += 1;
-            continue;
-          }
-
-          const isSaved = await persistFile(filePath, fileItems, password);
-          if (isSaved) {
-            successCount += 1;
-            publishedFiles.push(filePath);
-            publishedSnapshots[filePath] = cloneDataItems(fileItems);
-            setDirtyFiles((prev) => ({ ...prev, [filePath]: false }));
-            setStagedFiles((prev) => ({ ...prev, [filePath]: false }));
-          } else {
-            failedCount += 1;
-          }
+        if (isSaved) {
+          publishCandidates.forEach((entry) => {
+            publishedSnapshots[entry.filePath] = cloneDataItems(entry.fileItems);
+            setDirtyFiles((prev) => ({ ...prev, [entry.filePath]: false }));
+            setStagedFiles((prev) => ({ ...prev, [entry.filePath]: false }));
+          });
         }
 
         const publishedPaths = Object.keys(publishedSnapshots);
@@ -1475,7 +1491,7 @@ export function useAdminCMS() {
         }
 
         if (successCount > 0) {
-          toast.success(`Saved ${successCount} file(s)`);
+          toast.success(`Published ${successCount} file(s) in one commit`);
         }
 
         if (failedCount > 0) {
@@ -1491,7 +1507,7 @@ export function useAdminCMS() {
         setIsLoading(false);
       }
     },
-    [itemsByFile, persistFile, stagedFiles]
+    [isArrayFileByPath, itemsByFile, stagedFiles]
   );
 
   const resetDraftChanges = useCallback(
