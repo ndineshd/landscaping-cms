@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { getActiveProjects, getActiveServices } from "@/lib/config-loader";
 import { ROUTES } from "@/lib/constants";
 import { getContactCollections } from "@/lib/contact-utils";
+import { parseKeywords, resolveMetadataBase, toAbsoluteUrl } from "@/lib/seo";
 import { stripLanguagePrefixFromPath } from "@/lib/site-i18n";
 import { getSiteCommonData } from "@/lib/site-data";
 import type { ThemeConfig } from "@/types/config";
@@ -55,13 +56,49 @@ function getLogoText(text?: string): string {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { adminConfig } = await getSiteCommonData();
+  const { adminConfig, language } = await getSiteCommonData();
   const seo = adminConfig.seo;
+  const metadataBase = resolveMetadataBase();
+  const keywords = parseKeywords(seo.keywords);
+  const ogImage = seo.ogImage
+    ? toAbsoluteUrl(seo.ogImage, metadataBase)
+    : undefined;
+  const localizedHomeUrl = toAbsoluteUrl(
+    `/${language.currentLanguageCode}`,
+    metadataBase
+  );
+  const iconUrl = seo.favicon ? toAbsoluteUrl(seo.favicon, metadataBase) : undefined;
 
   return {
+    metadataBase,
     description: seo.description,
-    icons: seo.favicon,
-    keywords: seo.keywords,
+    icons: iconUrl
+      ? {
+          icon: iconUrl,
+          shortcut: iconUrl,
+          apple: iconUrl,
+        }
+      : undefined,
+    keywords,
+    openGraph: {
+      description: seo.description,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      locale: language.currentLanguageCode,
+      siteName: adminConfig.site.name,
+      title: seo.title,
+      type: "website",
+      url: localizedHomeUrl,
+    },
+    robots: {
+      follow: true,
+      index: true,
+    },
+    twitter: {
+      card: "summary_large_image",
+      description: seo.description,
+      images: ogImage ? [ogImage] : undefined,
+      title: seo.title,
+    },
     title: seo.title,
   };
 }
@@ -97,10 +134,51 @@ export default async function SiteLayout({ children }: SiteLayoutProps) {
   const socialMedia = adminConfig.socialMedia.filter((social) => social.enabled);
   const contactCollections = getContactCollections(adminConfig.contact);
   const themeStyle = createThemeStyle(adminConfig.theme);
+  const metadataBase = resolveMetadataBase();
+  const localizedHomeUrl = toAbsoluteUrl(
+    `/${language.currentLanguageCode}`,
+    metadataBase
+  );
+  const logoImageUrl = adminConfig.site.logo.imageUrl
+    ? toAbsoluteUrl(adminConfig.site.logo.imageUrl, metadataBase)
+    : undefined;
+  const socialLinks = socialMedia
+    .map((social) => social.url)
+    .filter((url) => Boolean(url && /^https?:\/\//i.test(url)));
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      inLanguage: language.currentLanguageCode,
+      name: adminConfig.site.name,
+      url: localizedHomeUrl,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      address: contactCollections.addresses[0]
+        ? {
+            "@type": "PostalAddress",
+            streetAddress: contactCollections.addresses[0],
+          }
+        : undefined,
+      description: adminConfig.site.description,
+      email: contactCollections.emails[0],
+      image: logoImageUrl,
+      name: adminConfig.site.companyName || adminConfig.site.name,
+      sameAs: socialLinks.length > 0 ? socialLinks : undefined,
+      telephone: contactCollections.phoneNumbers[0],
+      url: localizedHomeUrl,
+    },
+  ];
 
   return (
     <div className="site-theme min-h-screen" style={themeStyle}>
       {adminConfig.theme.customCss ? <style>{adminConfig.theme.customCss}</style> : null}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
       <RouteLoadingOverlay />
       <SiteHeader
         companyName={adminConfig.site.companyName}

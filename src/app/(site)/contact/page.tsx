@@ -1,11 +1,19 @@
 import { Clock3, ExternalLink, Mail, MapPin, Phone } from "lucide-react";
+import type { Metadata } from "next";
 
 import { ContactLocationMap } from "@/components/site/ContactLocationMap";
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
 import { ScrollReveal } from "@/components/site/ScrollReveal";
 import { SectionContainer } from "@/components/site/SectionContainer";
 import { WhatsAppIcon } from "@/components/site/WhatsAppIcon";
+import { ROUTES } from "@/lib/constants";
 import { getContactCollections } from "@/lib/contact-utils";
+import {
+  buildPageAlternates,
+  parseKeywords,
+  resolveMetadataBase,
+  toAbsoluteUrl,
+} from "@/lib/seo";
 import { getSiteCommonData } from "@/lib/site-data";
 
 function sanitizePhoneNumber(value: string): string {
@@ -68,6 +76,49 @@ async function createMapEmbedUrl(
   }
 
   return `https://www.google.com/maps?q=${encodeURIComponent(fallbackQuery)}&output=embed`;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const siteData = await getSiteCommonData();
+  const { adminConfig, language, translations } = siteData;
+  const contactCopy = translations.contact || {};
+  const metadataBase = resolveMetadataBase();
+  const alternates = buildPageAlternates(
+    ROUTES.CONTACT,
+    language.currentLanguageCode,
+    language.languageCodes,
+    metadataBase
+  );
+  const contactTitle = contactCopy.title || "Contact Us";
+  const title = `${contactTitle} | ${adminConfig.site.name}`;
+  const description =
+    contactCopy.subtitle ||
+    adminConfig.seo.description;
+  const keywords = parseKeywords(adminConfig.seo.keywords);
+  const ogImage = adminConfig.seo.ogImage
+    ? toAbsoluteUrl(adminConfig.seo.ogImage, metadataBase)
+    : undefined;
+  const canonicalUrl = String(alternates.canonical || "");
+
+  return {
+    alternates,
+    description,
+    keywords,
+    openGraph: {
+      description,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+      title,
+      type: "website",
+      url: canonicalUrl,
+    },
+    title,
+    twitter: {
+      card: "summary_large_image",
+      description,
+      images: ogImage ? [ogImage] : undefined,
+      title,
+    },
+  };
 }
 
 export default async function ContactPage() {
