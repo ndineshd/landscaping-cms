@@ -6,14 +6,21 @@ import { SectionHeading } from "./SectionHeading";
 import { ProjectsCarousel } from "./ProjectsCarousel";
 
 interface ProjectsSectionProps {
+  galleryTitleLabel?: string;
   projects: Project[];
   title: string;
+  viewGalleryLabel?: string;
 }
 
 /**
  * Homepage projects section.
  */
-export function ProjectsSection({ projects, title }: ProjectsSectionProps) {
+export function ProjectsSection({
+  galleryTitleLabel,
+  projects,
+  title,
+  viewGalleryLabel,
+}: ProjectsSectionProps) {
   const visibleProjects = projects.filter((project) => project.enabled);
   if (visibleProjects.length === 0) return null;
 
@@ -24,7 +31,11 @@ export function ProjectsSection({ projects, title }: ProjectsSectionProps) {
           <SectionHeading alignment="left" className="max-w-none" title={title} />
         </ScrollReveal>
         <ScrollReveal delayMs={90} variant="zoom">
-          <ProjectsCarousel projects={visibleProjects} />
+          <ProjectsCarousel
+            galleryTitleLabel={galleryTitleLabel}
+            projects={visibleProjects}
+            viewGalleryLabel={viewGalleryLabel}
+          />
         </ScrollReveal>
       </SectionContainer>
     </section>

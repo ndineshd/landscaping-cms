@@ -38,6 +38,8 @@ export interface Project {
   sortOrder: number;
   /** Whether this project is visible/enabled */
   enabled: boolean;
+  /** Whether gallery popup should be shown for this project */
+  showGallery?: boolean;
 }
 
 /**

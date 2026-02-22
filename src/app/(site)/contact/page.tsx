@@ -1,10 +1,11 @@
-import { ExternalLink, Mail, Phone } from "lucide-react";
+import { ExternalLink, Mail, MapPin, Phone } from "lucide-react";
 
 import { ContactLocationMap } from "@/components/site/ContactLocationMap";
 import { FloatingWhatsApp } from "@/components/site/FloatingWhatsApp";
 import { ScrollReveal } from "@/components/site/ScrollReveal";
 import { SectionContainer } from "@/components/site/SectionContainer";
 import { WhatsAppIcon } from "@/components/site/WhatsAppIcon";
+import { getContactCollections } from "@/lib/contact-utils";
 import { getSiteCommonData } from "@/lib/site-data";
 
 function sanitizePhoneNumber(value: string): string {
@@ -80,17 +81,24 @@ export default async function ContactPage() {
   const social = adminConfig.socialMedia.find(
     (item) => item.enabled && item.name.toLowerCase().includes("instagram")
   );
+  const contactCollections = getContactCollections(adminConfig.contact);
+  const primaryLocation = contactCollections.locations[0];
+  const primaryAddress = contactCollections.addresses[0] || "";
 
-  const phoneHref = `tel:${sanitizePhoneNumber(adminConfig.contact.phone)}`;
-  const emailHref = `mailto:${adminConfig.contact.email}`;
   const whatsappHref = `https://wa.me/${sanitizeWhatsAppNumber(adminConfig.contact.whatsapp.number)}?text=${encodeURIComponent(adminConfig.contact.whatsapp.defaultMessage)}`;
-  const mapQuery = adminConfig.contact.location.name
-    ? `${adminConfig.contact.location.name}, ${adminConfig.contact.address}`
-    : adminConfig.contact.address;
-  const mapEmbedUrl = await createMapEmbedUrl(adminConfig.contact.location.url, mapQuery);
+  const mapQuery = primaryLocation?.name
+    ? `${primaryLocation.name}, ${primaryAddress}`
+    : primaryAddress || adminConfig.site.companyName || adminConfig.site.name;
+  const mapEmbedUrl = await createMapEmbedUrl(primaryLocation?.url, mapQuery);
   const floatingContact = adminConfig.contact.floatingContact;
   const locationCardTitle =
-    adminConfig.contact.location.name || adminConfig.site.companyName || adminConfig.site.name;
+    primaryLocation?.name || adminConfig.site.companyName || adminConfig.site.name;
+  const locationRows = Array.from({
+    length: Math.max(contactCollections.locations.length, contactCollections.addresses.length),
+  }).map((_, index) => ({
+    address: contactCollections.addresses[index] || contactCollections.addresses[0] || "",
+    location: contactCollections.locations[index] || contactCollections.locations[0],
+  }));
 
   return (
     <main>
@@ -126,24 +134,26 @@ export default async function ContactPage() {
                 <h2 className="site-heading text-3xl font-semibold text-[var(--site-color-foreground)] md:text-3xl">{getInTouchSectionTitle}</h2>
               </ScrollReveal>
               <div className="mt-6 space-y-4">
-                <ScrollReveal delayMs={50}>
-                  <a
-                    className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
-                    href={phoneHref}
-                  >
-                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
-                      <Phone className="h-6 w-6" />
-                    </span>
-                    <span>
-                      <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.callUs || "Call Us"}</span>
-                      <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
-                        {adminConfig.contact.phone}
+                {contactCollections.phoneNumbers.map((phone, index) => (
+                  <ScrollReveal delayMs={50 + index * 40} key={`contact-phone-${index}`}>
+                    <a
+                      className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
+                      href={`tel:${sanitizePhoneNumber(phone)}`}
+                    >
+                      <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
+                        <Phone className="h-6 w-6" />
                       </span>
-                    </span>
-                  </a>
-                </ScrollReveal>
+                      <span>
+                        <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.callUs || "Call Us"}</span>
+                        <span className="site-heading block text-2xl font-semibold text-[var(--site-color-foreground)] md:text-[1.65rem]">
+                          {phone}
+                        </span>
+                      </span>
+                    </a>
+                  </ScrollReveal>
+                ))}
 
-                <ScrollReveal delayMs={110}>
+                <ScrollReveal delayMs={130}>
                   <a
                     className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
                     href={whatsappHref}
@@ -162,22 +172,24 @@ export default async function ContactPage() {
                   </a>
                 </ScrollReveal>
 
-                <ScrollReveal delayMs={170}>
-                  <a
-                    className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
-                    href={emailHref}
-                  >
-                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
-                      <Mail className="h-6 w-6" />
-                    </span>
-                    <span>
-                      <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.emailUs || "Email Us"}</span>
-                      <span className="site-heading block break-all text-xl font-semibold text-[var(--site-color-foreground)] md:text-xl">
-                        {adminConfig.contact.email}
+                {contactCollections.emails.map((email, index) => (
+                  <ScrollReveal delayMs={180 + index * 40} key={`contact-email-${index}`}>
+                    <a
+                      className="flex items-center gap-4 rounded-[5px] border border-[var(--site-color-border)] bg-white px-5 py-[18px] transition-colors hover:border-[var(--site-color-primary)]"
+                      href={`mailto:${email}`}
+                    >
+                      <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[5px] bg-[var(--site-color-muted)] text-[var(--site-color-primary)]">
+                        <Mail className="h-6 w-6" />
                       </span>
-                    </span>
-                  </a>
-                </ScrollReveal>
+                      <span>
+                        <span className="block text-sm text-[var(--site-color-muted-foreground)]">{contactCopy.emailUs || "Email Us"}</span>
+                        <span className="site-heading block break-all text-xl font-semibold text-[var(--site-color-foreground)] md:text-xl">
+                          {email}
+                        </span>
+                      </span>
+                    </a>
+                  </ScrollReveal>
+                ))}
               </div>
 
               {social ? (
@@ -207,6 +219,36 @@ export default async function ContactPage() {
                   title={locationCardTitle}
                 />
               </ScrollReveal>
+              {locationRows.length > 0 ? (
+                <ScrollReveal delayMs={150}>
+                  <div className="mt-4 rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)] p-4">
+                    <ul className="space-y-3 text-sm text-[var(--site-color-muted-foreground)]">
+                      {locationRows.map((entry, index) => (
+                        <li className="flex items-start gap-2" key={`contact-location-${index}`}>
+                          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--site-color-primary)]" />
+                          <span>
+                            <span className="block font-medium text-[var(--site-color-foreground)]">
+                              {entry.location?.name || locationCardTitle}
+                            </span>
+                            {entry.address ? <span className="block">{entry.address}</span> : null}
+                            {entry.location?.url ? (
+                              <a
+                                className="mt-1 inline-flex items-center gap-1 text-[var(--site-color-primary)] hover:underline"
+                                href={entry.location.url}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                {mapActionLabel}
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            ) : null}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </ScrollReveal>
+              ) : null}
             </div>
           </div>
         </SectionContainer>

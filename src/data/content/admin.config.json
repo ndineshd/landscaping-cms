@@ -95,7 +95,24 @@
       "showEmail": false
     },
     "address_tel": "Chennai, Tamil Nadu",
-    "address_ta": "Chennai, Tamil Nadu"
+    "address_ta": "Chennai, Tamil Nadu",
+    "phoneNumbers": [
+      "+91 9500836544"
+    ],
+    "emails": [
+      "support@growWell-landscape.com"
+    ],
+    "addresses": [
+      "Chennai, Tamil Nadu"
+    ],
+    "locations": [
+      {
+        "name": "GrowWell Landscapes - Landscape Contractor",
+        "name_tel": "గ్రోవెల్ ల్యాండ్‌స్కేప్స్ - ల్యాండ్‌స్కేప్ కాంట్రాక్టర్",
+        "url": "https://maps.app.goo.gl/zmCRae9YmHq5jEgEA",
+        "name_ta": "GrowWell Landscapes - Landscape Contractor"
+      }
+    ]
   },
   "socialMedia": [
     {

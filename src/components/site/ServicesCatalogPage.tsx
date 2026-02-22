@@ -34,20 +34,24 @@ export function ServicesCatalogPage({
   viewDetailsLabel,
 }: ServicesCatalogPageProps) {
   const [query, setQuery] = useState("");
-  const shouldShowSearch = services.length > 8;
+  const enabledServices = useMemo(
+    () => services.filter((service) => service.enabled),
+    [services]
+  );
+  const shouldShowSearch = enabledServices.length > 8;
 
   const filteredServices = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) {
-      return services;
+      return enabledServices;
     }
 
-    return services.filter((service) => {
+    return enabledServices.filter((service) => {
       return [service.title, service.shortDescription, service.description]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(needle));
     });
-  }, [query, services]);
+  }, [enabledServices, query]);
 
   return (
     <>

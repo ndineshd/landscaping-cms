@@ -24,7 +24,8 @@
     "category_ta": "டர்ஃபிங்",
     "description_ta": "டர்ஃபிங்",
     "location_ta": "சென்னை, தமிழ்நாடு",
-    "title_ta": "டர்ஃபிங்"
+    "title_ta": "டர்ஃபிங்",
+    "showGallery": true
   },
   {
     "id": "residential-terrace-garden",
@@ -51,7 +52,8 @@
     "title_ta": "வசதி டெரஸ் தோட்டம்",
     "description_ta": "புல்வெளி பகுதி மற்றும் தேர்ந்தெடுக்கப்பட்ட தாவரங்களுடன் ஒரு குடியிருப்பு டெரஸை செழிப்பான பசுமை ஓய்விடமாக மாற்றிய சிறந்த திட்டம்.",
     "location_ta": "சென்னை, தமிழ்நாடு",
-    "category_ta": "குடியிருப்பு"
+    "category_ta": "குடியிருப்பு",
+    "showGallery": true
   },
   {
     "id": "commercial-corporate-vertical-wall",
@@ -76,7 +78,8 @@
     "title_ta": "கார்ப்பரேட் செங்குத்து சுவர்",
     "description_ta": "நவீன பணியிடம் அழகியலுடன் பசுமையை ஒருங்கிணைக்கும் வகையில் கார்ப்பரேட் அலுவலகத்திற்கான செங்குத்து சுவர் நிறுவல்.",
     "location_ta": "சென்னை, தமிழ்நாடு",
-    "category_ta": "வணிக"
+    "category_ta": "வணிக",
+    "showGallery": true
   },
   {
     "id": "residential-villa-landscape-design",
@@ -101,6 +104,7 @@
     "title_ta": "வில்லா லேண்ட்ஸ்கேப் வடிவமைப்பு",
     "description_ta": "ஒழுங்கமைக்கப்பட்ட தாவர நடவு மற்றும் திறந்த புல்வெளி மாற்றங்களுடன் ஒரு பிரீமியம் வில்லாவிற்கான லேண்ட்ஸ்கேப் மேம்பாடு.",
     "location_ta": "சென்னை, தமிழ்நாடு",
-    "category_ta": "குடியிருப்பு"
+    "category_ta": "குடியிருப்பு",
+    "showGallery": true
   }
 ]

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Images } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Carousel,
   CarouselApi,
@@ -19,24 +21,60 @@ interface ProjectCardProps {
   completedDate: string;
   description: string;
   imagePath: string;
+  onOpenGallery: () => void;
+  showGalleryAction: boolean;
   title: string;
+  viewGalleryLabel: string;
 }
 
 interface ProjectsCarouselProps {
+  galleryTitleLabel?: string;
   projects: Project[];
+  viewGalleryLabel?: string;
 }
 
 function getProjectImage(project: Project): string {
   if (project.image && project.image.trim().length > 0) {
     return project.image;
   }
-  if (project.images.length > 0) {
+  if (project.images && project.images.length > 0) {
     return project.images[0];
   }
   return "/uploads/site/site/img-1771472600648.jpeg";
 }
 
-function ProjectCard({ completedDate, description, imagePath, title }: ProjectCardProps) {
+function getProjectGalleryImages(project: Project): string[] {
+  const values = [project.image, ...(project.images || [])];
+  const seen = new Set<string>();
+
+  const deduped = values.reduce<string[]>((items, value) => {
+    const normalized = (value || "").trim();
+    if (!normalized) return items;
+
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return items;
+
+    seen.add(key);
+    items.push(normalized);
+    return items;
+  }, []);
+
+  return deduped.length > 0 ? deduped : ["/uploads/site/site/img-1771472600648.jpeg"];
+}
+
+function shouldShowGalleryAction(project: Project): boolean {
+  return (project.showGallery ?? true) && getProjectGalleryImages(project).length > 0;
+}
+
+function ProjectCard({
+  completedDate,
+  description,
+  imagePath,
+  onOpenGallery,
+  showGalleryAction,
+  title,
+  viewGalleryLabel,
+}: ProjectCardProps) {
   return (
     <article className="group relative h-[320px] overflow-hidden rounded-[5px] bg-[var(--site-color-muted)]">
       <SiteImage
@@ -56,6 +94,16 @@ function ProjectCard({ completedDate, description, imagePath, title }: ProjectCa
             {completedDate}
           </p>
         ) : null}
+        {showGalleryAction ? (
+          <button
+            className="mt-2 inline-flex items-center gap-2 rounded-[5px] border border-white/40 bg-black/45 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-white hover:bg-black/60"
+            onClick={onOpenGallery}
+            type="button"
+          >
+            <Images className="h-3.5 w-3.5" />
+            {viewGalleryLabel}
+          </button>
+        ) : null}
       </div>
     </article>
   );
@@ -64,10 +112,35 @@ function ProjectCard({ completedDate, description, imagePath, title }: ProjectCa
 /**
  * Client carousel for project cards.
  */
-export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
+export function ProjectsCarousel({
+  galleryTitleLabel = "Gallery",
+  projects,
+  viewGalleryLabel = "View Gallery",
+}: ProjectsCarouselProps) {
   const [api, setApi] = useState<CarouselApi | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [slideCount, setSlideCount] = useState(0);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
+
+  const activeProject = useMemo(
+    () => projects.find((project) => project.id === activeProjectId) || null,
+    [activeProjectId, projects]
+  );
+  const activeGalleryImages = useMemo(
+    () => (activeProject ? getProjectGalleryImages(activeProject) : []),
+    [activeProject]
+  );
+
+  const moveGallery = (direction: 1 | -1) => {
+    if (activeGalleryImages.length <= 1) return;
+    setActiveGalleryIndex((prevIndex) => {
+      const next = prevIndex + direction;
+      if (next < 0) return activeGalleryImages.length - 1;
+      if (next >= activeGalleryImages.length) return 0;
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!api) {
@@ -89,40 +162,128 @@ export function ProjectsCarousel({ projects }: ProjectsCarouselProps) {
     };
   }, [api]);
 
+  useEffect(() => {
+    if (activeGalleryIndex < activeGalleryImages.length) return;
+    setActiveGalleryIndex(0);
+  }, [activeGalleryImages.length, activeGalleryIndex]);
+
   return (
-    <div className="mt-10">
-      <Carousel opts={{ align: "start", loop: true }} setApi={setApi}>
-        <CarouselContent>
-          {projects.map((project) => (
-            <CarouselItem className="basis-full sm:basis-1/2 lg:basis-1/3" key={project.id}>
-              <ProjectCard
-                completedDate={project.completedDate}
-                description={project.description}
-                imagePath={getProjectImage(project)}
-                title={project.title}
-              />
-            </CarouselItem>
+    <>
+      <div className="mt-10">
+        <Carousel opts={{ align: "start", loop: true }} setApi={setApi}>
+          <CarouselContent>
+            {projects.map((project) => (
+              <CarouselItem className="basis-full sm:basis-1/2 lg:basis-1/3" key={project.id}>
+                <ProjectCard
+                  completedDate={project.completedDate}
+                  description={project.description}
+                  imagePath={getProjectImage(project)}
+                  onOpenGallery={() => {
+                    setActiveProjectId(project.id);
+                    setActiveGalleryIndex(0);
+                  }}
+                  showGalleryAction={shouldShowGalleryAction(project)}
+                  title={project.title}
+                  viewGalleryLabel={viewGalleryLabel}
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="left-1 hidden h-10 w-10 rounded-[5px] border-[var(--site-color-border)] bg-white text-[var(--site-color-primary)] md:inline-flex" />
+          <CarouselNext className="right-1 hidden h-10 w-10 rounded-[5px] border-[var(--site-color-border)] bg-white text-[var(--site-color-primary)] md:inline-flex" />
+        </Carousel>
+        <div className="mt-6 flex items-center justify-center gap-2 md:hidden">
+          {Array.from({ length: slideCount }).map((_, index) => (
+            <button
+              aria-label={`Go to project slide ${index + 1}`}
+              className={cn(
+                "h-2.5 w-2.5 rounded-[5px] border transition-colors duration-200",
+                index === currentSlideIndex
+                  ? "border-[var(--site-color-primary)] bg-[var(--site-color-primary)]"
+                  : "border-[var(--site-color-border)] bg-transparent"
+              )}
+              key={`project-dot-${index}`}
+              onClick={() => api?.scrollTo(index)}
+              type="button"
+            />
           ))}
-        </CarouselContent>
-        <CarouselPrevious className="left-1 hidden h-10 w-10 rounded-[5px] border-[var(--site-color-border)] bg-white text-[var(--site-color-primary)] md:inline-flex" />
-        <CarouselNext className="right-1 hidden h-10 w-10 rounded-[5px] border-[var(--site-color-border)] bg-white text-[var(--site-color-primary)] md:inline-flex" />
-      </Carousel>
-      <div className="mt-6 flex items-center justify-center gap-2 md:hidden">
-        {Array.from({ length: slideCount }).map((_, index) => (
-          <button
-            aria-label={`Go to project slide ${index + 1}`}
-            className={cn(
-              "h-2.5 w-2.5 rounded-[5px] border transition-colors duration-200",
-              index === currentSlideIndex
-                ? "border-[var(--site-color-primary)] bg-[var(--site-color-primary)]"
-                : "border-[var(--site-color-border)] bg-transparent"
-            )}
-            key={`project-dot-${index}`}
-            onClick={() => api?.scrollTo(index)}
-            type="button"
-          />
-        ))}
+        </div>
       </div>
-    </div>
+
+      <Dialog
+        open={Boolean(activeProject && activeGalleryImages.length > 0)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setActiveProjectId(null);
+            setActiveGalleryIndex(0);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[96vw] border-[var(--site-color-border)] bg-white p-4 sm:max-w-4xl" showCloseButton>
+          <DialogHeader>
+            <DialogTitle className="site-heading text-xl text-[var(--site-color-foreground)]">
+              {activeProject?.title} {galleryTitleLabel}
+            </DialogTitle>
+          </DialogHeader>
+
+          {activeGalleryImages.length > 0 ? (
+            <div className="space-y-3">
+              <div className="relative overflow-hidden rounded-[5px] border border-[var(--site-color-border)] bg-[var(--site-color-muted)]">
+                <SiteImage
+                  alt={`${activeProject?.title || "Project"} gallery image ${activeGalleryIndex + 1}`}
+                  className="h-[52vh] w-full"
+                  imgClassName="object-contain bg-black/85"
+                  src={activeGalleryImages[activeGalleryIndex]}
+                />
+                {activeGalleryImages.length > 1 ? (
+                  <>
+                    <button
+                      aria-label="Previous image"
+                      className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/55 text-white transition-colors hover:bg-black/70"
+                      onClick={() => moveGallery(-1)}
+                      type="button"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      aria-label="Next image"
+                      className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/55 text-white transition-colors hover:bg-black/70"
+                      onClick={() => moveGallery(1)}
+                      type="button"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </>
+                ) : null}
+              </div>
+
+              {activeGalleryImages.length > 1 ? (
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                  {activeGalleryImages.map((image, index) => (
+                    <button
+                      className={cn(
+                        "overflow-hidden rounded-[5px] border bg-[var(--site-color-muted)]",
+                        index === activeGalleryIndex
+                          ? "border-[var(--site-color-primary)]"
+                          : "border-[var(--site-color-border)]"
+                      )}
+                      key={`${activeProject?.id || "project"}-gallery-thumb-${index}`}
+                      onClick={() => setActiveGalleryIndex(index)}
+                      type="button"
+                    >
+                      <SiteImage
+                        alt={`${activeProject?.title || "Project"} thumbnail ${index + 1}`}
+                        className="h-14 w-full"
+                        src={image}
+                      />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

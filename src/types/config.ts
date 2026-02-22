@@ -171,12 +171,20 @@ export interface LocationInfo {
 export interface ContactConfig {
   /** Phone number */
   phone: string;
+  /** Optional list of phone numbers */
+  phoneNumbers?: string[];
   /** Email address */
   email: string;
+  /** Optional list of email addresses */
+  emails?: string[];
   /** Physical address */
   address: string;
+  /** Optional list of physical addresses */
+  addresses?: string[];
   /** Location information with Google Maps link */
   location: LocationInfo;
+  /** Optional list of locations with Google Maps links */
+  locations?: LocationInfo[];
   /** WhatsApp configuration */
   whatsapp: WhatsAppConfig;
   /** Floating contact widget configuration */

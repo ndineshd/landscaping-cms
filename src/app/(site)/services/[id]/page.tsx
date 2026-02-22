@@ -23,6 +23,7 @@ import { SiteImage } from "@/components/site/SiteImage";
 import { ServiceQuoteButton } from "@/components/site/ServiceQuoteButton";
 import { getActiveServices } from "@/lib/config-loader";
 import { ROUTES } from "@/lib/constants";
+import { getPrimaryPhoneNumber } from "@/lib/contact-utils";
 import { createLocalizedPath } from "@/lib/site-i18n";
 import { getSiteCommonData, localizeSiteContent } from "@/lib/site-data";
 import type { Service } from "@/types/content";
@@ -103,6 +104,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
   const otherServicesHeading = detailCopy.otherServicesTitle || "Other Services";
   const breadcrumbHomeLabel = navCopy.home || detailCopy.breadcrumbHome || "Home";
   const breadcrumbServicesLabel = navCopy.services || detailCopy.breadcrumbServices || "Services";
+  const primaryPhoneNumber = getPrimaryPhoneNumber(siteData.adminConfig.contact);
 
   return (
     <main>
@@ -214,8 +216,8 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
                   <p className="mt-4 text-center text-sm text-[var(--site-color-muted-foreground)]">
                     {callDirectlyLabel}
                     <br />
-                    <a className="font-medium text-[var(--site-color-foreground)]" href={`tel:${siteData.adminConfig.contact.phone.replace(/[^\d+]/g, "")}`}>
-                      {siteData.adminConfig.contact.phone}
+                    <a className="font-medium text-[var(--site-color-foreground)]" href={`tel:${primaryPhoneNumber.replace(/[^\d+]/g, "")}`}>
+                      {primaryPhoneNumber}
                     </a>
                   </p>
                 </div>

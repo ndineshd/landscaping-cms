@@ -55,7 +55,14 @@ export default async function HomePage() {
           viewDetailsLabel={servicesCopy.viewDetails || "View Details"}
         />
       ) : null}
-      {hasProjects ? <ProjectsSection projects={projects} title={projectsCopy.title || "Our Projects"} /> : null}
+      {hasProjects ? (
+        <ProjectsSection
+          galleryTitleLabel={projectsCopy.galleryTitle || "Gallery"}
+          projects={projects}
+          title={projectsCopy.title || "Our Projects"}
+          viewGalleryLabel={projectsCopy.viewGallery || "View Gallery"}
+        />
+      ) : null}
       <AboutSection
         ctaHref={localizedAboutCtaHref}
         ctaLabel={aboutCopy.ctaText || contactCopy.title || "Get in Touch"}

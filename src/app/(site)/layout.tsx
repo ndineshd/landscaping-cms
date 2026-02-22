@@ -6,6 +6,7 @@ import { RouteLoadingOverlay } from "@/components/site/RouteLoadingOverlay";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { getActiveProjects, getActiveServices } from "@/lib/config-loader";
 import { ROUTES } from "@/lib/constants";
+import { getContactCollections } from "@/lib/contact-utils";
 import { stripLanguagePrefixFromPath } from "@/lib/site-i18n";
 import { getSiteCommonData } from "@/lib/site-data";
 import type { ThemeConfig } from "@/types/config";
@@ -92,6 +93,7 @@ export default async function SiteLayout({ children }: SiteLayoutProps) {
     return true;
   });
   const socialMedia = adminConfig.socialMedia.filter((social) => social.enabled);
+  const contactCollections = getContactCollections(adminConfig.contact);
   const themeStyle = createThemeStyle(adminConfig.theme);
 
   return (
@@ -112,16 +114,16 @@ export default async function SiteLayout({ children }: SiteLayoutProps) {
       <div className="flex min-h-screen flex-col">
         <div className="flex-1">{children}</div>
         <SiteFooter
-          address={adminConfig.contact.address}
+          addresses={contactCollections.addresses}
           companyName={adminConfig.site.companyName}
           contactTitle={footerLabels.contactTitle}
           copyright={footerLabels.copyright}
-          email={adminConfig.contact.email}
+          emails={contactCollections.emails}
           followUsTitle={footerLabels.followUsTitle}
           homeHref={homeHref}
           logo={adminConfig.site.logo}
           logoText={logoText}
-          phone={adminConfig.contact.phone}
+          phoneNumbers={contactCollections.phoneNumbers}
           siteDescription={adminConfig.site.description}
           siteName={adminConfig.site.name}
           socialMedia={socialMedia}

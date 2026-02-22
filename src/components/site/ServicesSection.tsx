@@ -32,7 +32,7 @@ export function ServicesSection({
   viewAllLabel,
   viewDetailsLabel,
 }: ServicesSectionProps) {
-  const visibleServices = services.slice(0, 4);
+  const visibleServices = services.filter((service) => service.enabled).slice(0, 4);
   const servicesPageHref = createLocalizedPath(
     ROUTES.SERVICES,
     currentLanguageCode,

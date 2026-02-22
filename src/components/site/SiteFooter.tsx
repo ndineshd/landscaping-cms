@@ -6,16 +6,16 @@ import { SectionContainer } from "./SectionContainer";
 import { SiteLogo } from "./SiteLogo";
 
 interface SiteFooterProps {
-  address: string;
+  addresses: string[];
   companyName: string;
   contactTitle: string;
   copyright: string;
-  email: string;
+  emails: string[];
   followUsTitle: string;
   homeHref: string;
   logo: LogoConfig;
   logoText: string;
-  phone: string;
+  phoneNumbers: string[];
   siteDescription: string;
   siteName: string;
   socialMedia: SocialMediaLink[];
@@ -32,16 +32,16 @@ function getSocialIcon(icon: string) {
  * Website footer.
  */
 export function SiteFooter({
-  address,
+  addresses,
   companyName,
   contactTitle,
   copyright,
-  email,
+  emails,
   followUsTitle,
   homeHref,
   logo,
   logoText,
-  phone,
+  phoneNumbers,
   siteDescription,
   siteName,
   socialMedia,
@@ -64,18 +64,24 @@ export function SiteFooter({
           <div>
             <h3 className="site-heading text-lg font-semibold">{contactTitle}</h3>
             <ul className="mt-4 space-y-3 text-sm text-[var(--site-color-muted-foreground)]">
-              <li className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-[var(--site-color-primary)]" />
-                <a href={`tel:${phone.replace(/\s+/g, "")}`}>{phone}</a>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-[var(--site-color-primary)]" />
-                <a href={`mailto:${email}`}>{email}</a>
-              </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-[var(--site-color-primary)]" />
-                <span>{address}</span>
-              </li>
+              {phoneNumbers.map((phone, index) => (
+                <li className="flex items-center gap-2" key={`footer-phone-${index}`}>
+                  <Phone className="h-4 w-4 text-[var(--site-color-primary)]" />
+                  <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}>{phone}</a>
+                </li>
+              ))}
+              {emails.map((email, index) => (
+                <li className="flex items-center gap-2" key={`footer-email-${index}`}>
+                  <Mail className="h-4 w-4 text-[var(--site-color-primary)]" />
+                  <a href={`mailto:${email}`}>{email}</a>
+                </li>
+              ))}
+              {addresses.map((address, index) => (
+                <li className="flex items-center gap-2" key={`footer-address-${index}`}>
+                  <MapPin className="h-4 w-4 text-[var(--site-color-primary)]" />
+                  <span>{address}</span>
+                </li>
+              ))}
             </ul>
           </div>
 
