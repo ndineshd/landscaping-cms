@@ -45,7 +45,7 @@ export function ServicesSection({
         <ScrollReveal>
           <SectionHeading subtitle={subtitle} title={title} />
         </ScrollReveal>
-        <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-12 grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visibleServices.map((service, index) => (
             <ScrollReveal className="h-full" delayMs={index * 70} key={service.id} variant="zoom">
               <ServiceCard

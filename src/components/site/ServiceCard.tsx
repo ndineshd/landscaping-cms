@@ -23,7 +23,7 @@ export function ServiceCard({ className, href, service, viewDetailsLabel }: Read
       href={href}
     >
       <div className="flex h-full flex-col bg-white">
-        <div className="h-44 shrink-0 bg-[var(--site-color-muted)] md:h-48">
+        <div className="h-36 shrink-0 bg-[var(--site-color-muted)] md:h-40">
           <SiteImage
             alt={`${service.title} service image`}
             className="h-full w-full"
@@ -31,15 +31,15 @@ export function ServiceCard({ className, href, service, viewDetailsLabel }: Read
             src={service.image}
           />
         </div>
-        <div className="flex-1 p-4">
-          <h2 className="site-heading line-clamp-2 min-h-[56px] text-xl font-semibold leading-tight text-[var(--site-color-foreground)]">
+        <div className="flex-1 p-3.5">
+          <h2 className="site-heading line-clamp-2 text-lg font-semibold leading-tight text-[var(--site-color-foreground)]">
             {service.title}
           </h2>
-          <p className="mt-3 line-clamp-3 min-h-[64px] text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--site-color-muted-foreground)]">
             {service.shortDescription}
           </p>
         </div>
-        <div className="mt-auto border-t border-[var(--site-color-border)] px-4 pb-4 pt-3">
+        <div className="mt-auto border-t border-[var(--site-color-border)] px-3.5 pb-3.5 pt-2.5">
           <span className="flex items-center justify-between rounded-[5px] px-2 py-1 text-sm font-semibold text-[var(--site-color-primary)] transition-shadow duration-300 group-hover:shadow-sm">
             <span>{viewDetailsLabel}</span>
             <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />

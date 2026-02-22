@@ -95,7 +95,7 @@ export function ServicesCatalogPage({
       <section className="bg-white py-12 md:py-16">
         <SectionContainer>
           {filteredServices.length > 0 ? (
-            <div className="grid items-stretch gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid items-stretch gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
               {filteredServices.map((service, index) => (
                 <ScrollReveal className="h-full" delayMs={(index % 6) * 65} key={service.id} variant="zoom">
                   <ServiceCard
