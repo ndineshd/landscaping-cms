@@ -1,0 +1,60 @@
+name: Vercel Branch Redeploy
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Deployment target"
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - production
+
+concurrency:
+  group: vercel-redeploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  redeploy-production:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'production')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Production Redeploy
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.VERCEL_PROD_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "Missing secret: VERCEL_PROD_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --request POST \
+            "$DEPLOY_HOOK_URL"
+
+  redeploy-development:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'development')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel Development Redeploy
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEV_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "Missing secret: VERCEL_DEV_DEPLOY_HOOK_URL"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --request POST \
+            "$DEPLOY_HOOK_URL"

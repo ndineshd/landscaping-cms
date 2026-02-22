@@ -56,3 +56,30 @@ After deployment:
 2. Verify new commit appears in GitHub.
 3. Verify updated content appears on live site.
 4. If not, verify env vars and repo/branch alignment in Vercel.
+
+## Branch-based redeploy pipeline
+
+This repo includes `.github/workflows/vercel-branch-redeploy.yml` with this behavior:
+
+- Push to `main` -> trigger production redeploy.
+- Push to `dev` -> trigger development redeploy.
+
+### Required GitHub repository secrets
+
+Add these in GitHub -> Settings -> Secrets and variables -> Actions:
+
+- `VERCEL_PROD_DEPLOY_HOOK_URL`
+- `VERCEL_DEV_DEPLOY_HOOK_URL`
+
+### Create deploy hooks in Vercel
+
+In Vercel Project Settings, create 2 deploy hooks:
+
+1. Production hook for branch `main`.
+2. Development hook for branch `dev`.
+
+Copy their URLs into the GitHub secrets above.
+
+### Important
+
+If Vercel Git auto-deploy is still enabled for these branches, each push can create duplicate deployments (one from Vercel Git integration + one from GitHub Action hook). Keep only one deployment trigger strategy.
