@@ -112,10 +112,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         // Get current file to retrieve SHA
         const currentFile = await github.getFile(payload.filePath);
+        const resolvedPath = currentFile.path || payload.filePath;
 
         // Update file
         const updatedFile = await github.putFile(
-          payload.filePath,
+          resolvedPath,
           payload.content,
           "Update JSON data via CMS",
           currentFile.sha

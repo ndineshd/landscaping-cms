@@ -29,6 +29,7 @@ const GITHUB_API_BASE = "https://api.github.com";
  */
 export class GitHubAPI {
   private config: GitHubConfig;
+  private resolvedFilePaths: Map<string, string> = new Map();
 
   /**
    * Initialize GitHub API with configuration
@@ -65,9 +66,54 @@ export class GitHubAPI {
    * @param filePath - Path to file in repository
    * @returns Full API URL
    */
-  private buildUrl(filePath: string): string {
+  private buildUrl(filePath: string, withRef = false): string {
     const cleanPath = filePath.startsWith("/") ? filePath.slice(1) : filePath;
-    return `${GITHUB_API_BASE}/repos/${this.config.owner}/${this.config.repo}/contents/${cleanPath}`;
+    const baseUrl = `${GITHUB_API_BASE}/repos/${this.config.owner}/${this.config.repo}/contents/${cleanPath}`;
+    if (!withRef) {
+      return baseUrl;
+    }
+    return `${baseUrl}?ref=${encodeURIComponent(this.config.branch)}`;
+  }
+
+  private normalizePath(filePath: string): string {
+    return filePath.startsWith("/") ? filePath.slice(1) : filePath;
+  }
+
+  private getPathCandidates(filePath: string): string[] {
+    const normalized = this.normalizePath(filePath);
+    const candidates: string[] = [];
+    const pushCandidate = (candidate: string) => {
+      if (!candidate) return;
+      if (!candidates.includes(candidate)) {
+        candidates.push(candidate);
+      }
+    };
+
+    const cachedResolved = this.resolvedFilePaths.get(normalized);
+    if (cachedResolved) {
+      pushCandidate(cachedResolved);
+    }
+
+    pushCandidate(normalized);
+
+    if (normalized.startsWith("src/")) {
+      pushCandidate(normalized.slice(4));
+    } else {
+      pushCandidate(`src/${normalized}`);
+    }
+
+    return candidates;
+  }
+
+  private rememberResolvedPath(sourcePath: string, resolvedPath: string): void {
+    const normalizedSource = this.normalizePath(sourcePath);
+    const normalizedResolved = this.normalizePath(resolvedPath);
+    this.resolvedFilePaths.set(normalizedSource, normalizedResolved);
+  }
+
+  private resolvePathForWrite(filePath: string): string {
+    const normalized = this.normalizePath(filePath);
+    return this.resolvedFilePaths.get(normalized) || normalized;
   }
 
   /**
@@ -77,25 +123,32 @@ export class GitHubAPI {
    * @throws Error if file not found or request fails
    */
   async getFile(filePath: string): Promise<GitHubFileResponse> {
-    const url = this.buildUrl(filePath);
-
     try {
-      const response = await fetch(url, {
-        headers: this.getHeaders(),
-        cache: "no-store",
-      });
+      const candidates = this.getPathCandidates(filePath);
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(`File not found: ${filePath}`);
+      for (const candidatePath of candidates) {
+        const response = await fetch(this.buildUrl(candidatePath, true), {
+          headers: this.getHeaders(),
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as GitHubFileResponse;
+          this.rememberResolvedPath(filePath, candidatePath);
+          if (data.path) {
+            this.rememberResolvedPath(filePath, data.path);
+          }
+          return data;
         }
-        throw new Error(
-          `GitHub API error: ${response.status} ${response.statusText}`
-        );
+
+        if (response.status !== 404) {
+          throw new Error(
+            `GitHub API error: ${response.status} ${response.statusText}`
+          );
+        }
       }
 
-      const data = (await response.json()) as GitHubFileResponse;
-      return data;
+      throw new Error(`File not found: ${filePath}`);
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(`Failed to fetch file from GitHub: ${error.message}`);
@@ -120,7 +173,8 @@ export class GitHubAPI {
     sha?: string,
     options?: { contentEncoding?: "utf-8" | "base64" }
   ): Promise<GitHubFileResponse> {
-    const url = this.buildUrl(filePath);
+    const resolvedPath = this.resolvePathForWrite(filePath);
+    const url = this.buildUrl(resolvedPath);
 
     const base64Content =
       options?.contentEncoding === "base64"
@@ -149,6 +203,11 @@ export class GitHubAPI {
       }
 
       const data = (await response.json()) as { content: GitHubFileResponse };
+      if (data.content.path) {
+        this.rememberResolvedPath(filePath, data.content.path);
+      } else {
+        this.rememberResolvedPath(filePath, resolvedPath);
+      }
       return data.content;
     } catch (error) {
       if (error instanceof Error) {
@@ -171,7 +230,8 @@ export class GitHubAPI {
     sha: string,
     message: string = "Delete file"
   ): Promise<GitHubFileResponse> {
-    const url = this.buildUrl(filePath);
+    const resolvedPath = this.resolvePathForWrite(filePath);
+    const url = this.buildUrl(resolvedPath);
 
     const body = {
       message,
@@ -194,6 +254,7 @@ export class GitHubAPI {
       }
 
       const data = (await response.json()) as { content: GitHubFileResponse };
+      this.rememberResolvedPath(filePath, resolvedPath);
       return data.content;
     } catch (error) {
       if (error instanceof Error) {
