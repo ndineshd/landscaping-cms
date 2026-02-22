@@ -89,7 +89,7 @@ function renderLogoBadge(logo: LogoConfig, logoText: string, siteName: string) {
 
   return (
     <span
-      className="site-logo-badge relative inline-flex items-center justify-center overflow-hidden rounded-[5px] bg-[var(--site-color-accent)] p-1.5"
+      className="site-logo-badge relative inline-flex items-center justify-center overflow-hidden"
       style={badgeStyle}
     >
       <SiteImage
