@@ -12,7 +12,10 @@ const SITE_LANGUAGE_HEADER = "x-site-lang";
 const LANGUAGE_COOKIE_NAME = "language";
 const LANGUAGE_STATE_CACHE_TTL_MS = 30_000;
 const GITHUB_CONTENTS_BASE_URL = "https://api.github.com/repos";
-const ADMIN_CONFIG_PATH = "src/data/content/admin.config.json";
+const ADMIN_CONFIG_PATH_CANDIDATES = [
+  "src/data/content/admin.config.json",
+  "data/content/admin.config.json",
+] as const;
 
 interface GitHubFileResponse {
   content?: string;
@@ -83,34 +86,41 @@ async function loadSiteConfigFromGitHub(): Promise<SiteConfig | null> {
     return null;
   }
 
-  const apiUrl =
-    `${GITHUB_CONTENTS_BASE_URL}/${owner}/${repo}/contents/` +
-    `${ADMIN_CONFIG_PATH}?ref=${encodeURIComponent(branch)}`;
-  const response = await fetch(apiUrl, {
-    headers: {
-      Accept: "application/vnd.github.v3+json",
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
+  for (const adminConfigPath of ADMIN_CONFIG_PATH_CANDIDATES) {
+    const apiUrl =
+      `${GITHUB_CONTENTS_BASE_URL}/${owner}/${repo}/contents/` +
+      `${adminConfigPath}?ref=${encodeURIComponent(branch)}`;
+    const response = await fetch(apiUrl, {
+      headers: {
+        Accept: "application/vnd.github.v3+json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
 
-  if (!response.ok) {
-    return null;
+    if (!response.ok) {
+      if (response.status === 404) {
+        continue;
+      }
+      return null;
+    }
+
+    const data = (await response.json()) as GitHubFileResponse;
+    if (!data.content) {
+      continue;
+    }
+
+    const decoded = decodeGitHubBase64(data.content);
+    const parsed = JSON.parse(decoded) as { site?: unknown };
+
+    if (!parsed.site || typeof parsed.site !== "object") {
+      continue;
+    }
+
+    return parsed.site as SiteConfig;
   }
 
-  const data = (await response.json()) as GitHubFileResponse;
-  if (!data.content) {
-    return null;
-  }
-
-  const decoded = decodeGitHubBase64(data.content);
-  const parsed = JSON.parse(decoded) as { site?: unknown };
-
-  if (!parsed.site || typeof parsed.site !== "object") {
-    return null;
-  }
-
-  return parsed.site as SiteConfig;
+  return null;
 }
 
 async function getLanguageRoutingState(): Promise<{
