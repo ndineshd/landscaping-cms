@@ -157,6 +157,7 @@ export function ProjectsCarousel({
   const [slideCount, setSlideCount] = useState(0);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState(0);
+  const [isAutoplayPaused, setIsAutoplayPaused] = useState(false);
 
   const activeProject = useMemo(
     () => projects.find((project) => project.id === activeProjectId) || null,
@@ -205,10 +206,30 @@ export function ProjectsCarousel({
     setActiveGalleryIndex(0);
   }, [activeGalleryImages.length, activeGalleryIndex]);
 
+  useEffect(() => {
+    if (!api || projects.length <= 1) return;
+
+    const intervalId = window.setInterval(() => {
+      if (isAutoplayPaused || activeProjectId) return;
+      api.scrollNext();
+    }, 3500);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activeProjectId, api, isAutoplayPaused, projects.length]);
+
   return (
     <>
       <div className="mt-10">
-        <Carousel opts={{ align: "start", loop: true }} setApi={setApi}>
+        <Carousel
+          opts={{ align: "start", loop: true }}
+          setApi={setApi}
+          onBlurCapture={() => setIsAutoplayPaused(false)}
+          onFocusCapture={() => setIsAutoplayPaused(true)}
+          onMouseEnter={() => setIsAutoplayPaused(true)}
+          onMouseLeave={() => setIsAutoplayPaused(false)}
+        >
           <CarouselContent>
             {projects.map((project) => (
               <CarouselItem className="basis-full sm:basis-1/2 lg:basis-1/3" key={project.id}>
