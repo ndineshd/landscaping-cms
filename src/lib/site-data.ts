@@ -22,6 +22,7 @@ export interface SiteCommonData {
   language: SiteLanguageState;
   navItems: SiteNavItem[];
   translations: LanguageTranslations;
+  whatsAppDefaultMessageEnglish: string;
 }
 
 /**
@@ -87,6 +88,37 @@ function getRequestedLanguageFromHeaders(): string {
   }
 }
 
+const DEFAULT_WHATSAPP_MESSAGE_EN =
+  "Hi, I'm interested in your landscaping services. Can you help me?";
+
+function resolveEnglishWhatsAppDefaultMessage(adminConfig: AdminConfig): string {
+  const whatsappConfig = adminConfig.contact?.whatsapp as unknown as Record<string, unknown>;
+
+  const baseMessage =
+    typeof whatsappConfig.defaultMessage === "string"
+      ? whatsappConfig.defaultMessage.trim()
+      : "";
+  if (baseMessage) {
+    return baseMessage;
+  }
+
+  const englishVariantKeys = [
+    "defaultMessage_en",
+    "defaultMessage_eng",
+    "defaultMessage_english",
+    "defaultMessageEnglish",
+  ];
+
+  for (const key of englishVariantKeys) {
+    const value = whatsappConfig[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return DEFAULT_WHATSAPP_MESSAGE_EN;
+}
+
 export function localizeSiteContent<T>(
   value: T,
   language: SiteLanguageState
@@ -115,6 +147,8 @@ export async function getSiteCommonData(
   );
   const footerCopy = translations.footer || {};
   const navCopy = translations.nav || {};
+  const whatsAppDefaultMessageEnglish =
+    resolveEnglishWhatsAppDefaultMessage(adminConfigRaw);
 
   return {
     adminConfig,
@@ -127,6 +161,7 @@ export async function getSiteCommonData(
     language,
     navItems: mapNavigationItems(navCopy, language),
     translations,
+    whatsAppDefaultMessageEnglish,
   };
 }
 

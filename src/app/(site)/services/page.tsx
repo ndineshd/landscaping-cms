@@ -85,7 +85,7 @@ export default async function ServicesPage() {
       {floatingContact.enabled && floatingContact.showWhatsApp ? (
         <FloatingWhatsApp
           ariaLabel={contactCopy.chatOnWhatsApp || "Chat on WhatsApp"}
-          defaultMessage={siteData.adminConfig.contact.whatsapp.defaultMessage}
+          defaultMessage={siteData.whatsAppDefaultMessageEnglish}
           number={siteData.adminConfig.contact.whatsapp.number}
         />
       ) : null}

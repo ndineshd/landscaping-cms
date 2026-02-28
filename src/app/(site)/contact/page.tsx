@@ -139,7 +139,7 @@ export default async function ContactPage() {
   const primaryAddress = contactCollections.addresses[0] || "";
   const timings = contactCollections.timings;
 
-  const whatsappHref = `https://wa.me/${sanitizeWhatsAppNumber(adminConfig.contact.whatsapp.number)}?text=${encodeURIComponent(adminConfig.contact.whatsapp.defaultMessage)}`;
+  const whatsappHref = `https://wa.me/${sanitizeWhatsAppNumber(adminConfig.contact.whatsapp.number)}?text=${encodeURIComponent(siteData.whatsAppDefaultMessageEnglish)}`;
   const mapQuery = primaryLocation?.name
     ? `${primaryLocation.name}, ${primaryAddress}`
     : primaryAddress || adminConfig.site.companyName || adminConfig.site.name;
@@ -334,7 +334,7 @@ export default async function ContactPage() {
       {floatingContact.enabled && floatingContact.showWhatsApp ? (
         <FloatingWhatsApp
           ariaLabel={contactCopy.chatOnWhatsApp || "Chat on WhatsApp"}
-          defaultMessage={adminConfig.contact.whatsapp.defaultMessage}
+          defaultMessage={siteData.whatsAppDefaultMessageEnglish}
           number={adminConfig.contact.whatsapp.number}
         />
       ) : null}

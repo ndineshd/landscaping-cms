@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
 import { WhatsAppIcon } from "./WhatsAppIcon";
 
 interface ServiceQuoteButtonProps {
@@ -21,23 +19,9 @@ export function ServiceQuoteButton({
   number,
   serviceTitle,
 }: ServiceQuoteButtonProps) {
-  const [serviceUrl, setServiceUrl] = useState<string>("");
-
-  useEffect(() => {
-    setServiceUrl(window.location.href);
-  }, []);
-
-  const href = useMemo(() => {
-    const safeNumber = sanitizePhoneNumber(number);
-    const lines = [
-      `Hi, I'm interested in ${serviceTitle} service.`,
-      "Can you share pricing and next steps?",
-      serviceUrl ? `Service link: ${serviceUrl}` : "",
-    ].filter(Boolean);
-    const message = lines.join("\n");
-
-    return `https://wa.me/${safeNumber}?text=${encodeURIComponent(message)}`;
-  }, [number, serviceTitle, serviceUrl]);
+  const safeNumber = sanitizePhoneNumber(number);
+  const message = `Hi, I'm interested in ${serviceTitle} service. Can you share pricing, and next steps?`;
+  const href = `https://wa.me/${safeNumber}?text=${encodeURIComponent(message)}`;
 
   return (
     <a
