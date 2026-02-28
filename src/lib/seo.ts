@@ -12,19 +12,29 @@ const BASE_URL_ENV_KEYS = [
 
 function normalizeBaseUrl(value: string): string {
   const trimmed = value.trim();
+
   if (!trimmed) return "";
+
   if (/^https?:\/\//i.test(trimmed)) {
     return trimmed;
   }
+
   return `https://${trimmed}`;
 }
 
+/**
+ * Resolves the metadata base URL from environment variables with safe fallback.
+ */
 export function resolveMetadataBase(): URL {
   for (const envKey of BASE_URL_ENV_KEYS) {
     const rawValue = process.env[envKey];
+
     if (!rawValue) continue;
+
     const candidate = normalizeBaseUrl(rawValue);
+
     if (!candidate) continue;
+
     try {
       const url = new URL(candidate);
       return new URL(`${url.protocol}//${url.host}`);
@@ -36,6 +46,9 @@ export function resolveMetadataBase(): URL {
   return new URL("http://localhost:3000");
 }
 
+/**
+ * Converts a relative path (or passthrough absolute URL) into an absolute URL string.
+ */
 export function toAbsoluteUrl(pathOrUrl: string, metadataBase: URL): string {
   if (!pathOrUrl) {
     return metadataBase.toString();
@@ -49,15 +62,23 @@ export function toAbsoluteUrl(pathOrUrl: string, metadataBase: URL): string {
   return new URL(normalizedPath, metadataBase).toString();
 }
 
+/**
+ * Splits and normalizes comma-separated keywords.
+ */
 export function parseKeywords(value: string | undefined): string[] | undefined {
   if (!value) return undefined;
+
   const keywords = value
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
+
   return keywords.length > 0 ? keywords : undefined;
 }
 
+/**
+ * Builds canonical and alternate URLs for a localized route.
+ */
 export function buildPageAlternates(
   routePath: string,
   currentLanguageCode: string,
