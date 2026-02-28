@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 interface AdminLoginCardProps {
   password: string;
   showPassword: boolean;
+  errorMessage?: string;
   onPasswordChange: (value: string) => void;
   onToggleShowPassword: () => void;
   onAuthenticate: () => void;
@@ -13,6 +14,7 @@ interface AdminLoginCardProps {
 export function AdminLoginCard({
   password,
   showPassword,
+  errorMessage,
   onPasswordChange,
   onToggleShowPassword,
   onAuthenticate,
@@ -33,7 +35,9 @@ export function AdminLoginCard({
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => onPasswordChange(e.target.value)}
-            className="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+              errorMessage ? "border-red-400 focus:ring-red-500" : ""
+            }`}
             placeholder="Password"
           />
           <button
@@ -43,6 +47,10 @@ export function AdminLoginCard({
             {showPassword ? <EyeOff /> : <Eye />}
           </button>
         </div>
+
+        {errorMessage && (
+          <p className="text-sm text-red-600">{errorMessage}</p>
+        )}
 
         <button
           onClick={onAuthenticate}
