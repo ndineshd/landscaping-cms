@@ -1,135 +1,111 @@
-/**
- * POST /api/upload-image
- * Uploads media files to GitHub repository
- */
-
-import { NextRequest, NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import { dirname, join } from "path";
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
 import { createGitHubAPI } from "@/lib/github-api";
-import type { APIResponse, ImageUploadPayload } from "@/types/cms";
+import {
+  assertValidMediaContent,
+  decodeBase64Content,
+  enforceRateLimit,
+  InvalidJsonBodyError,
+  isJsonRequest,
+  parseJsonBodyWithLimit,
+  PayloadTooLargeError,
+  requireAdminSession,
+} from "@/lib/security";
+import type { APIResponse } from "@/types/cms";
 
-/**
- * Validate admin password
- * @param password - Password to validate
- * @returns True if password is correct
- */
-function validatePassword(password: string): boolean {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    console.error("ADMIN_PASSWORD environment variable not set");
-    return false;
-  }
-  return password === adminPassword;
+const UPLOAD_BODY_LIMIT_BYTES = 12 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+const uploadSchema = z.object({
+  base64Content: z.string().min(1),
+  fileName: z
+    .string()
+    .trim()
+    .regex(/^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp|mp4|webm|ogg|mov)$/i),
+  folder: z
+    .string()
+    .trim()
+    .regex(/^[a-zA-Z0-9/_-]+$/)
+    .optional(),
+});
+
+function apiError(status: number, error: string): NextResponse {
+  const response: APIResponse = {
+    error,
+    status,
+    success: false,
+  };
+  return NextResponse.json(response, { status });
 }
 
-/**
- * Validate upload file name
- * @param fileName - File name to validate
- * @returns True if file name is valid
- */
-function validateFileName(fileName: string): boolean {
-  // Only allow alphanumeric, dash, underscore, and dot
-  const validNamePattern =
-    /^[a-zA-Z0-9._-]+\.(jpg|jpeg|png|webp|mp4|webm|ogg|mov)$/i;
-  return validNamePattern.test(fileName);
-}
-
-/**
- * Validate upload folder
- * @param folder - Folder path to validate
- * @returns True if folder is valid
- */
-function validateFolder(folder: string): boolean {
-  if (!folder) return true;
-  if (folder.includes("..")) return false;
-  if (folder.startsWith("/") || folder.endsWith("/")) return false;
-  return /^[a-zA-Z0-9/_-]+$/.test(folder);
-}
-
-/**
- * Handle POST request to upload media to GitHub
- * @param request - Next.js request object
- * @returns JSON response with upload status and media path
- */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const rateLimitResponse = enforceRateLimit({
+    blockDurationMs: 60 * 1000,
+    key: "upload-image",
+    limit: 20,
+    request,
+    windowMs: 60 * 1000,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const auth = requireAdminSession(request, { requireCsrf: true });
+  if (auth.response) return auth.response;
+
+  if (!isJsonRequest(request)) {
+    return apiError(415, "Expected JSON request body");
+  }
+
+  let payload: z.infer<typeof uploadSchema>;
   try {
-    // Parse request body
-    let payload: ImageUploadPayload;
-    try {
-      payload = (await request.json()) as ImageUploadPayload;
-    } catch {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid request body",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
+    const rawPayload = await parseJsonBodyWithLimit<unknown>(
+      request,
+      UPLOAD_BODY_LIMIT_BYTES
+    );
+    payload = uploadSchema.parse(rawPayload);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "Upload payload exceeds size limit");
     }
-
-    // Validate required fields
-    if (!payload.fileName || !payload.base64Content || !payload.password) {
-      const response: APIResponse = {
-        success: false,
-        error: "Missing required fields: fileName, base64Content, password",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
+    if (error instanceof InvalidJsonBodyError) {
+      return apiError(400, "Invalid request body");
     }
+    return apiError(400, "Invalid upload payload");
+  }
 
-    // Validate password
-    if (!validatePassword(payload.password)) {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid password",
-        status: 401,
-      };
-      return NextResponse.json(response, { status: 401 });
-    }
+  if (payload.folder && payload.folder.includes("..")) {
+    return apiError(400, "Invalid folder path");
+  }
 
-    // Validate file name
-    if (!validateFileName(payload.fileName)) {
-      const response: APIResponse = {
-        success: false,
-        error:
-          "Invalid file name. Only alphanumeric, dash, underscore allowed. Must end with .jpg, .jpeg, .png, .webp, .mp4, .webm, .ogg, or .mov",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
+  const folderSegment = payload.folder ? `/${payload.folder}` : "";
+  const filePath = `public/uploads${folderSegment}/${payload.fileName}`;
+  const publicPath = `/uploads${folderSegment}/${payload.fileName}`;
 
-    if (payload.folder && !validateFolder(payload.folder)) {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid folder path",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
-    const folderSegment = payload.folder ? `/${payload.folder}` : "";
-    const filePath = `public/uploads${folderSegment}/${payload.fileName}`;
-    const publicPath = `/uploads${folderSegment}/${payload.fileName}`;
+  try {
+    const binaryContent = decodeBase64Content(payload.base64Content, MAX_UPLOAD_BYTES);
+    assertValidMediaContent(payload.fileName, binaryContent);
 
     if (process.env.NODE_ENV === "development") {
       const fullPath = join(process.cwd(), filePath);
       await mkdir(dirname(fullPath), { recursive: true });
-      await writeFile(fullPath, Buffer.from(payload.base64Content, "base64"));
+      await writeFile(fullPath, binaryContent);
 
       const successResponse: APIResponse = {
-        success: true,
         data: {
+          fileName: payload.fileName,
           path: publicPath,
           sha: "local-dev",
-          fileName: payload.fileName,
         },
         message: "Media uploaded successfully (local development)",
+        success: true,
       };
 
       return NextResponse.json(successResponse);
     }
 
-    // Initialize GitHub API
     const github = createGitHubAPI();
     let sha: string | undefined;
 
@@ -140,36 +116,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       sha = undefined;
     }
 
-    // Upload media
     const uploadedFile = await github.putFile(
       filePath,
-      payload.base64Content,
+      payload.base64Content.replace(/\s+/g, ""),
       `Upload media: ${payload.fileName}`,
       sha,
       { contentEncoding: "base64" }
     );
 
     const successResponse: APIResponse = {
-      success: true,
       data: {
+        fileName: payload.fileName,
         path: publicPath,
         sha: uploadedFile.sha,
-        fileName: payload.fileName,
       },
       message: "Media uploaded successfully",
+      success: true,
     };
 
     return NextResponse.json(successResponse);
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal server error";
-
-    const response: APIResponse = {
-      success: false,
-      error: errorMessage,
-      status: 500,
-    };
-
-    return NextResponse.json(response, { status: 500 });
+    console.error("[upload-image] failed", error);
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "Media file exceeds allowed size");
+    }
+    if (error instanceof Error && error.message.includes("Media content")) {
+      return apiError(400, "Uploaded media content did not match extension");
+    }
+    if (error instanceof Error && error.message.includes("Invalid base64")) {
+      return apiError(400, "Invalid media payload");
+    }
+    return apiError(500, "Failed to upload media");
   }
 }

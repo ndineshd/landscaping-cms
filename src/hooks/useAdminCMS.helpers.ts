@@ -43,7 +43,7 @@ const IMAGE_UPLOAD_COMPRESSION_OPTIONS = {
   maxWidthOrHeight: 1400,
   initialQuality: 0.8,
 };
-const PROJECT_GALLERY_VIDEO_MAX_SIZE_BYTES = 50 * 1024 * 1024;
+const PROJECT_GALLERY_VIDEO_MAX_SIZE_BYTES = 20 * 1024 * 1024;
 const PROJECT_GALLERY_VIDEO_EXTENSIONS = [".mp4", ".webm", ".ogg", ".mov"];
 const PROJECT_GALLERY_VIDEO_MIME_TYPES = new Set<string>([
   "video/mp4",
@@ -52,7 +52,7 @@ const PROJECT_GALLERY_VIDEO_MIME_TYPES = new Set<string>([
   "video/quicktime",
 ]);
 const MAX_DEPLOYED_BATCH_REQUEST_BYTES = 4 * 1024 * 1024;
-const GET_JSON_PASSWORD_HEADER = "x-admin-password";
+const SESSION_EXPIRED_ERROR = "Your admin session expired. Please sign in again.";
 
 export interface SaveAllResult {
   successCount: number;
@@ -109,16 +109,28 @@ function toPublicUploadPath(filePath: string): string {
 }
 
 async function fetchCMSFile(
-  filePath: string,
-  password: string
+  filePath: string
 ): Promise<APIResponse<{ content: unknown; sha: string }>> {
   const query = new URLSearchParams({ filePath });
   const response = await fetch(`/api/get-json?${query.toString()}`, {
-    headers: {
-      [GET_JSON_PASSWORD_HEADER]: password,
-    },
+    cache: "no-store",
   });
   return (await response.json()) as APIResponse<{ content: unknown; sha: string }>;
+}
+
+async function fetchAdminCsrfToken(): Promise<string> {
+  const response = await fetch("/api/admin/session", {
+    cache: "no-store",
+  });
+  const data = (await response.json()) as APIResponse;
+  if (!response.ok || !data.success) {
+    throw new Error(SESSION_EXPIRED_ERROR);
+  }
+  const csrfToken = (data.data as Record<string, unknown> | undefined)?.csrfToken;
+  if (typeof csrfToken !== "string" || !csrfToken.trim()) {
+    throw new Error(SESSION_EXPIRED_ERROR);
+  }
+  return csrfToken;
 }
 
 function toSlug(value: unknown): string {
@@ -834,8 +846,7 @@ function collectStringTranslationTargets(
 async function translateTextsWithGoogle(
   texts: string[],
   sourceLanguageCode: string,
-  targetLanguageCode: string,
-  password: string
+  targetLanguageCode: string
 ): Promise<{ translations: string[]; failedCount: number }> {
   if (texts.length === 0) {
     return { translations: [], failedCount: 0 };
@@ -845,11 +856,14 @@ async function translateTextsWithGoogle(
     return { translations: texts, failedCount: 0 };
   }
 
+  const csrfToken = await fetchAdminCsrfToken();
   const response = await fetch("/api/translate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-csrf-token": csrfToken,
+    },
     body: JSON.stringify({
-      password,
       sourceLanguage: sourceLanguageCode,
       targetLanguage: targetLanguageCode,
       texts,
@@ -883,8 +897,7 @@ async function autoTranslateLocalizedItems(
   items: DataItem[],
   languageCodes: string[],
   sourceLanguageCode: string,
-  targetLanguageCode: string,
-  password: string
+  targetLanguageCode: string
 ): Promise<{ items: DataItem[]; changed: boolean; failedCount: number }> {
   const clonedItems = cloneJsonValue(items);
   const targets: TranslationTarget[] = [];
@@ -900,8 +913,7 @@ async function autoTranslateLocalizedItems(
   const translated = await translateTextsWithGoogle(
     uniqueTexts,
     sourceLanguageCode,
-    targetLanguageCode,
-    password
+    targetLanguageCode
   );
   const translationMap = new Map<string, string>();
   uniqueTexts.forEach((text, index) => {
@@ -927,8 +939,7 @@ async function autoTranslateLocalizedItems(
 async function autoTranslateRecordStrings(
   value: Record<string, unknown>,
   sourceLanguageCode: string,
-  targetLanguageCode: string,
-  password: string
+  targetLanguageCode: string
 ): Promise<{ value: Record<string, unknown>; changed: boolean; failedCount: number }> {
   const clonedRecord = cloneJsonValue(value);
   const targets: TranslationTarget[] = [];
@@ -942,8 +953,7 @@ async function autoTranslateRecordStrings(
   const translated = await translateTextsWithGoogle(
     uniqueTexts,
     sourceLanguageCode,
-    targetLanguageCode,
-    password
+    targetLanguageCode
   );
   const translationMap = new Map<string, string>();
   uniqueTexts.forEach((text, index) => {
@@ -1037,6 +1047,7 @@ export {
   toRepositoryUploadPath,
   toPublicUploadPath,
   fetchCMSFile,
+  fetchAdminCsrfToken,
   buildAutoId,
   hasAutoIdSource,
   buildPublishableContentForFile,

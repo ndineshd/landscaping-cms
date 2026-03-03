@@ -30,7 +30,7 @@ export function MediaFieldEditor({
   onImageUpload,
   uploadScopeId,
   value,
-}: Readonly<MediaFieldEditorProps>): JSX.Element {
+}: Readonly<MediaFieldEditorProps>) {
   const currentValue = stringifyValue(value).trim();
   const hasMedia = currentValue.length > 0;
   const isVideoMedia = isVideoPath(currentValue);

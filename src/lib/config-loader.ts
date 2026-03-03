@@ -253,8 +253,8 @@ class ConfigLoader {
       }
     }
 
-    const module = await importer();
-    return module.default as T;
+    const importedModule = await importer();
+    return importedModule.default as T;
   }
 
   /**

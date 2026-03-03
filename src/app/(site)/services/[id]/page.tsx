@@ -31,6 +31,7 @@ import {
   resolveMetadataBase,
   toAbsoluteUrl,
 } from "@/lib/seo";
+import { escapeJsonForHtml } from "@/lib/sanitize";
 import { createLocalizedPath } from "@/lib/site-i18n";
 import { getSiteCommonData, localizeSiteContent } from "@/lib/site-data";
 import type { Service } from "@/types/content";
@@ -249,7 +250,7 @@ export default async function ServiceDetailPage({ params }: ServiceDetailPagePro
     <main>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{ __html: escapeJsonForHtml(structuredData) }}
       />
       <section className="relative overflow-hidden border-b border-[var(--site-color-border)] pb-10 pt-28 md:pb-12 md:pt-32">
         <SiteImage

@@ -5,9 +5,9 @@ import { isSiteIndexable, resolveMetadataBase, toAbsoluteUrl } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
   const fallbackBase = resolveMetadataBase();
-  const requestHeaders = headers();
+  const requestHeaders = await headers();
   const forwardedHost = requestHeaders.get("x-forwarded-host");
   const host = forwardedHost || requestHeaders.get("host");
   const protoHeader = requestHeaders.get("x-forwarded-proto");

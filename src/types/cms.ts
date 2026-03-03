@@ -54,8 +54,6 @@ export interface ImageUploadPayload {
   base64Content: string;
   /** Optional folder inside /public/uploads */
   folder?: string;
-  /** Admin password */
-  password: string;
 }
 
 /**
@@ -64,8 +62,6 @@ export interface ImageUploadPayload {
 export interface ImageDeletePayload {
   /** Full file path in repository */
   filePath: string;
-  /** Admin password */
-  password: string;
 }
 
 /**
@@ -76,8 +72,6 @@ export interface JSONUpdatePayload {
   filePath: string;
   /** File content as string */
   content: string;
-  /** Admin password */
-  password: string;
 }
 
 /**
@@ -100,8 +94,6 @@ export interface JSONBatchUpdatePayload {
   }>;
   /** Media files to delete in same commit */
   mediaDeletes?: string[];
-  /** Admin password */
-  password: string;
 }
 
 export type MediaUploadStatus = "processing" | "queued" | "error";

@@ -1,153 +1,94 @@
-/**
- * GET /api/get-json
- * Fetches JSON data from local files (dev) or GitHub repository (production)
- */
-
-import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { createGitHubAPI } from "@/lib/github-api";
+
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
 import { CMS_FILES } from "@/lib/cms-utils";
+import { createGitHubAPI } from "@/lib/github-api";
+import { enforceRateLimit, requireAdminSession } from "@/lib/security";
 import type { APIResponse } from "@/types/cms";
 
-const ADMIN_PASSWORD_HEADER = "x-admin-password";
 const ALLOWED_FILE_PATHS = new Set<string>(Object.values(CMS_FILES));
+const querySchema = z.object({
+  filePath: z.string().min(1),
+});
 
-/**
- * Validate admin password
- * @param password - Password to validate
- * @returns True if password is correct
- */
-function validatePassword(password: string): boolean {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    console.error("ADMIN_PASSWORD environment variable not set");
-    return false;
-  }
-  return password === adminPassword;
+function errorResponse(status: number, error: string): NextResponse {
+  const response: APIResponse = {
+    error,
+    status,
+    success: false,
+  };
+  return NextResponse.json(response, {
+    headers: {
+      "Cache-Control": "no-store",
+    },
+    status,
+  });
 }
 
-/**
- * Handle GET request to fetch JSON
- * - Development: Read from local filesystem
- * - Production: Fetch from GitHub API
- * @param request - Next.js request object
- * @returns JSON response with file content
- */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  const rateLimitResponse = enforceRateLimit({
+    key: "get-json",
+    limit: 120,
+    request,
+    windowMs: 60 * 1000,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const { response } = requireAdminSession(request);
+  if (response) return response;
+
+  let parsedQuery: z.infer<typeof querySchema>;
   try {
-    const providedPassword = request.headers.get(ADMIN_PASSWORD_HEADER) || "";
-    if (!validatePassword(providedPassword)) {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid password",
-        status: 401,
-      };
-      return NextResponse.json(response, {
-        status: 401,
-        headers: { "Cache-Control": "no-store" },
-      });
-    }
+    parsedQuery = querySchema.parse({
+      filePath: request.nextUrl.searchParams.get("filePath") || "",
+    });
+  } catch {
+    return errorResponse(400, "filePath query parameter is required");
+  }
 
-    // Get filePath from query parameters
-    const filePath = request.nextUrl.searchParams.get("filePath");
+  if (!ALLOWED_FILE_PATHS.has(parsedQuery.filePath)) {
+    return errorResponse(400, "Invalid file path");
+  }
 
-    if (!filePath) {
-      const response: APIResponse = {
-        success: false,
-        error: "filePath query parameter is required",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-    if (!ALLOWED_FILE_PATHS.has(filePath)) {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid file path",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-
+  try {
     let jsonData: unknown;
     let sha = "";
 
-    // In development, read from local filesystem
     if (process.env.NODE_ENV === "development") {
-      try {
-        // Get the file path relative to project root
-        const fullPath = join(process.cwd(), filePath);
-        const fileContent = await readFile(fullPath, "utf-8");
-        jsonData = JSON.parse(fileContent);
-        sha = "local-dev"; // Mock SHA for development
-      } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : "Failed to read file";
-        const response: APIResponse = {
-          success: false,
-          error: `Failed to read local file: ${errorMsg}`,
-          status: 404,
-        };
-        return NextResponse.json(response, { status: 404 });
-      }
+      const fullPath = join(process.cwd(), parsedQuery.filePath);
+      const fileContent = await readFile(fullPath, "utf-8");
+      jsonData = JSON.parse(fileContent);
+      sha = "local-dev";
     } else {
-      // In production, fetch from GitHub
-      try {
-        const github = createGitHubAPI();
-        const fileData = await github.getFile(filePath);
-
-        if (!fileData.content) {
-          const response: APIResponse = {
-            success: false,
-            error: "File content not found",
-            status: 404,
-          };
-          return NextResponse.json(response, { status: 404 });
-        }
-
-        const decodedContent = Buffer.from(
-          fileData.content,
-          "base64"
-        ).toString("utf-8");
-        jsonData = JSON.parse(decodedContent);
-        sha = fileData.sha || "";
-      } catch (error) {
-        const errorMsg =
-          error instanceof Error ? error.message : "GitHub API error";
-        const response: APIResponse = {
-          success: false,
-          error: `Failed to fetch from GitHub: ${errorMsg}`,
-          status: 500,
-        };
-        return NextResponse.json(response, { status: 500 });
+      const github = createGitHubAPI();
+      const fileData = await github.getFile(parsedQuery.filePath);
+      if (!fileData.content) {
+        return errorResponse(404, "File content not found");
       }
+      const decodedContent = Buffer.from(fileData.content, "base64").toString("utf-8");
+      jsonData = JSON.parse(decodedContent);
+      sha = fileData.sha || "";
     }
 
     const successResponse: APIResponse = {
-      success: true,
       data: {
         content: jsonData,
         sha,
       },
       message: "File fetched successfully",
+      success: true,
     };
 
     return NextResponse.json(successResponse, {
-      headers: { "Cache-Control": "no-store" },
+      headers: {
+        "Cache-Control": "no-store",
+      },
     });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal server error";
-
-    const response: APIResponse = {
-      success: false,
-      error: errorMessage,
-      status: 500,
-    };
-
-    return NextResponse.json(response, {
-      status: 500,
-      headers: { "Cache-Control": "no-store" },
-    });
+    console.error("[get-json] failed to fetch file", error);
+    return errorResponse(500, "Failed to fetch file");
   }
 }

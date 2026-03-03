@@ -32,7 +32,7 @@ const STATIC_SITE_PATHS: Array<{
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const fallbackBase = resolveMetadataBase();
-  const requestHeaders = headers();
+  const requestHeaders = await headers();
   const forwardedHost = requestHeaders.get("x-forwarded-host");
   const host = forwardedHost || requestHeaders.get("host");
   const protoHeader = requestHeaders.get("x-forwarded-proto");

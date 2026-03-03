@@ -7,12 +7,13 @@ export const metadata: Metadata = {
   description: "Landscaping content management system",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const languageFromHeader = headers().get("x-site-lang");
+  const requestHeaders = await headers();
+  const languageFromHeader = requestHeaders.get("x-site-lang");
   const htmlLanguage = (languageFromHeader || "en").trim().toLowerCase() || "en";
 
   return (

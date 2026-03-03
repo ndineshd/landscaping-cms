@@ -29,8 +29,6 @@ interface ItemEditorComponentProps {
   item: DataItem;
   /** Available fields */
   fields: DynamicField[];
-  /** Admin password (kept for API compatibility) */
-  password: string;
   /** Callback when field changes */
   onFieldChange: (fieldPath: (string | number)[], value: unknown) => void;
   /** Upload status for the provided media field path */
@@ -315,7 +313,7 @@ export function ItemEditorComponent({
     fieldPath: (string | number)[],
     depth = 0,
     parentRecord?: Record<string, unknown>
-  ): JSX.Element | null => {
+  ) => {
     if (hiddenKeys.has(fieldName)) return null;
     if (isHiddenPath(fieldPath)) return null;
     if (enableLanguageEditing && isLanguageVariantKey(fieldName, languageCodes)) return null;

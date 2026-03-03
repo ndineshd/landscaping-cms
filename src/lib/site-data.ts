@@ -70,6 +70,14 @@ function mapNavigationItems(
     },
     {
       href: createLocalizedPath(
+        ROUTES.PROJECTS,
+        language.currentLanguageCode,
+        language.languageCodes
+      ),
+      label: getLabel(copy, "Projects", "projects"),
+    },
+    {
+      href: createLocalizedPath(
         ROUTES.CONTACT,
         language.currentLanguageCode,
         language.languageCodes
@@ -79,9 +87,10 @@ function mapNavigationItems(
   ];
 }
 
-function getRequestedLanguageFromHeaders(): string {
+async function getRequestedLanguageFromHeaders(): Promise<string> {
   try {
-    const languageFromHeader = headers().get("x-site-lang");
+    const requestHeaders = await headers();
+    const languageFromHeader = requestHeaders.get("x-site-lang");
     return normalizeLanguageCode(languageFromHeader || "");
   } catch {
     return "";
@@ -137,9 +146,10 @@ export async function getSiteCommonData(
   requestedLanguageCode?: string
 ): Promise<SiteCommonData> {
   const adminConfigRaw = await configLoader.loadAdminConfig();
+  const requestedLanguageFromHeader = await getRequestedLanguageFromHeaders();
   const language = resolveSiteLanguage(
     adminConfigRaw.site,
-    requestedLanguageCode || getRequestedLanguageFromHeaders()
+    requestedLanguageCode || requestedLanguageFromHeader
   );
   const adminConfig = localizeSiteContent(adminConfigRaw, language) as AdminConfig;
   const translations = await configLoader.loadLanguageTranslations(

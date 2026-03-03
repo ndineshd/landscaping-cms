@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/site/SiteHeader";
 import { getActiveProjects, getActiveServices } from "@/lib/config-loader";
 import { ROUTES } from "@/lib/constants";
 import { getContactCollections } from "@/lib/contact-utils";
+import { escapeJsonForHtml, isCustomCssEnabled, sanitizeCustomCss } from "@/lib/sanitize";
 import {
   isSiteIndexable,
   parseKeywords,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/seo";
 import { stripLanguagePrefixFromPath } from "@/lib/site-i18n";
 import { getSiteCommonData } from "@/lib/site-data";
+import { toSafeHttpUrl } from "@/lib/url-safety";
 import type { ThemeConfig } from "@/types/config";
 
 export const dynamic = "force-dynamic";
@@ -149,8 +151,11 @@ export default async function SiteLayout({ children }: SiteLayoutProps) {
     ? toAbsoluteUrl(adminConfig.site.logo.imageUrl, metadataBase)
     : undefined;
   const socialLinks = socialMedia
-    .map((social) => social.url)
-    .filter((url) => Boolean(url && /^https?:\/\//i.test(url)));
+    .map((social) => toSafeHttpUrl(social.url))
+    .filter((url): url is string => Boolean(url));
+  const safeCustomCss = isCustomCssEnabled()
+    ? sanitizeCustomCss(adminConfig.theme.customCss)
+    : "";
   const structuredData = [
     {
       "@context": "https://schema.org",
@@ -183,10 +188,10 @@ export default async function SiteLayout({ children }: SiteLayoutProps) {
       <a className="site-skip-link" href="#main-content">
         Skip to main content
       </a>
-      {adminConfig.theme.customCss ? <style>{adminConfig.theme.customCss}</style> : null}
+      {safeCustomCss ? <style>{safeCustomCss}</style> : null}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        dangerouslySetInnerHTML={{ __html: escapeJsonForHtml(structuredData) }}
       />
       <RouteLoadingOverlay />
       <SiteHeader

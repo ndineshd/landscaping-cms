@@ -14,6 +14,7 @@ import {
   resolveMetadataBase,
   toAbsoluteUrl,
 } from "@/lib/seo";
+import { toSafeHttpUrl, toSafeMapUrl } from "@/lib/url-safety";
 import { getSiteCommonData } from "@/lib/site-data";
 
 function sanitizePhoneNumber(value: string): string {
@@ -43,36 +44,24 @@ function extractCoordinatesFromMapUrl(value: string): string | null {
   return null;
 }
 
-async function resolveGoogleMapsUrl(url: string): Promise<string> {
-  try {
-    const response = await fetch(url, { redirect: "follow" });
-    return response.url || url;
-  } catch {
-    return url;
-  }
-}
-
 async function createMapEmbedUrl(
   locationUrl: string | undefined,
   fallbackQuery: string
 ): Promise<string> {
-  const normalizedLocationUrl = locationUrl?.trim();
+  const safeLocationUrl = toSafeMapUrl(locationUrl);
 
-  if (normalizedLocationUrl) {
-    if (normalizedLocationUrl.includes("/maps/embed")) {
-      return normalizedLocationUrl;
+  if (safeLocationUrl) {
+    if (safeLocationUrl.includes("/maps/embed")) {
+      return safeLocationUrl;
     }
 
-    const resolvedUrl = await resolveGoogleMapsUrl(normalizedLocationUrl);
-    const pinnedCoordinates =
-      extractCoordinatesFromMapUrl(resolvedUrl) ||
-      extractCoordinatesFromMapUrl(normalizedLocationUrl);
+    const pinnedCoordinates = extractCoordinatesFromMapUrl(safeLocationUrl);
 
     if (pinnedCoordinates) {
       return `https://www.google.com/maps?q=${encodeURIComponent(pinnedCoordinates)}&z=18&output=embed`;
     }
 
-    return `https://www.google.com/maps?q=${encodeURIComponent(resolvedUrl)}&output=embed`;
+    return `https://www.google.com/maps?q=${encodeURIComponent(safeLocationUrl)}&output=embed`;
   }
 
   return `https://www.google.com/maps?q=${encodeURIComponent(fallbackQuery)}&output=embed`;
@@ -134,6 +123,7 @@ export default async function ContactPage() {
   const social = adminConfig.socialMedia.find(
     (item) => item.enabled && item.name.toLowerCase().includes("instagram")
   );
+  const safeSocialUrl = social ? toSafeHttpUrl(social.url) : null;
   const contactCollections = getContactCollections(adminConfig.contact);
   const primaryLocation = contactCollections.locations[0];
   const primaryAddress = contactCollections.addresses[0] || "";
@@ -152,6 +142,9 @@ export default async function ContactPage() {
   }).map((_, index) => ({
     address: contactCollections.addresses[index] || contactCollections.addresses[0] || "",
     location: contactCollections.locations[index] || contactCollections.locations[0],
+    safeLocationUrl: toSafeMapUrl(
+      (contactCollections.locations[index] || contactCollections.locations[0])?.url
+    ),
   }));
   const hasMultipleLocations = locationRows.length > 1;
   const showLocationMap = !hasMultipleLocations;
@@ -249,11 +242,11 @@ export default async function ContactPage() {
                 ))}
               </div>
 
-              {social ? (
+              {safeSocialUrl ? (
                 <ScrollReveal delayMs={220}>
                   <a
                     className="mt-6 inline-flex h-[52px] w-full items-center justify-center gap-3 rounded-[5px] bg-[var(--site-color-primary)] px-7 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[var(--site-color-primary-hover)] md:text-lg"
-                    href={social.url}
+                    href={safeSocialUrl}
                     rel="noopener noreferrer"
                     target="_blank"
                   >
@@ -290,10 +283,10 @@ export default async function ContactPage() {
                               {entry.location?.name || locationCardTitle}
                             </span>
                             {entry.address ? <span className="block">{entry.address}</span> : null}
-                            {entry.location?.url ? (
+                            {entry.safeLocationUrl ? (
                               <a
                                 className="mt-1 inline-flex items-center gap-1 text-[var(--site-color-primary)] hover:underline"
-                                href={entry.location.url}
+                                href={entry.safeLocationUrl}
                                 rel="noopener noreferrer"
                                 target="_blank"
                               >

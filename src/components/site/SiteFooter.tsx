@@ -1,6 +1,7 @@
 import { Instagram, Mail, MapPin, Phone } from "lucide-react";
 
 import type { LogoConfig, SocialMediaLink } from "@/types/config";
+import { toSafeHttpUrl } from "@/lib/url-safety";
 
 import { SectionContainer } from "./SectionContainer";
 import { SiteLogo } from "./SiteLogo";
@@ -92,13 +93,17 @@ export function SiteFooter({
                 if (!social.enabled) {
                   return null;
                 }
+                const safeSocialUrl = toSafeHttpUrl(social.url);
+                if (!safeSocialUrl) {
+                  return null;
+                }
 
                 return (
                   <li key={social.id}>
                     <a
                       aria-label={`${social.name} (opens in a new tab)`}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-[5px] border border-[var(--site-color-border)] text-[var(--site-color-muted-foreground)] transition-colors duration-200 hover:border-[var(--site-color-primary)] hover:text-[var(--site-color-primary)]"
-                      href={social.url}
+                      href={safeSocialUrl}
                       rel="noopener noreferrer"
                       target="_blank"
                     >

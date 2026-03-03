@@ -1,28 +1,25 @@
-/**
- * DELETE /api/delete-image
- * Deletes image from GitHub repository
- */
-
-import { NextRequest, NextResponse } from "next/server";
 import { readFile, unlink } from "fs/promises";
 import { join } from "path";
-import { createGitHubAPI } from "@/lib/github-api";
-import { CMS_FILES } from "@/lib/cms-utils";
-import type { APIResponse, ImageDeletePayload } from "@/types/cms";
 
-/**
- * Validate admin password
- * @param password - Password to validate
- * @returns True if password is correct
- */
-function validatePassword(password: string): boolean {
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword) {
-    console.error("ADMIN_PASSWORD environment variable not set");
-    return false;
-  }
-  return password === adminPassword;
-}
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+import { CMS_FILES } from "@/lib/cms-utils";
+import { createGitHubAPI } from "@/lib/github-api";
+import {
+  enforceRateLimit,
+  InvalidJsonBodyError,
+  isJsonRequest,
+  parseJsonBodyWithLimit,
+  PayloadTooLargeError,
+  requireAdminSession,
+} from "@/lib/security";
+import type { APIResponse } from "@/types/cms";
+
+const DELETE_BODY_LIMIT_BYTES = 16 * 1024;
+const deleteSchema = z.object({
+  filePath: z.string().trim().min(1),
+});
 
 function normalizeImagePath(filePath: string): string | null {
   const sanitizedInput = filePath.trim().replace(/\\/g, "/");
@@ -96,91 +93,91 @@ async function countUploadReferencesAcrossCMS(publicPath: string): Promise<numbe
     }
     return totalReferences;
   } catch (error) {
-    console.error("Failed to inspect upload references:", error);
+    console.error("[delete-image] failed to inspect references", error);
     return null;
   }
 }
 
-/**
- * Handle DELETE request to delete image from GitHub
- * @param request - Next.js request object
- * @returns JSON response with deletion status
- */
+function apiError(status: number, error: string): NextResponse {
+  const response: APIResponse = {
+    error,
+    status,
+    success: false,
+  };
+  return NextResponse.json(response, { status });
+}
+
 export async function DELETE(request: NextRequest): Promise<NextResponse> {
+  const rateLimitResponse = enforceRateLimit({
+    blockDurationMs: 60 * 1000,
+    key: "delete-image",
+    limit: 30,
+    request,
+    windowMs: 60 * 1000,
+  });
+  if (rateLimitResponse) return rateLimitResponse;
+
+  const auth = requireAdminSession(request, { requireCsrf: true });
+  if (auth.response) return auth.response;
+
+  if (!isJsonRequest(request)) {
+    return apiError(415, "Expected JSON request body");
+  }
+
+  let payload: z.infer<typeof deleteSchema>;
   try {
-    // Parse request body
-    let payload: ImageDeletePayload;
-    try {
-      payload = (await request.json()) as ImageDeletePayload;
-    } catch {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid request body",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
+    const rawPayload = await parseJsonBodyWithLimit<unknown>(
+      request,
+      DELETE_BODY_LIMIT_BYTES
+    );
+    payload = deleteSchema.parse(rawPayload);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "Request payload exceeds size limit");
     }
-
-    // Validate required fields
-    if (!payload.filePath || !payload.password) {
-      const response: APIResponse = {
-        success: false,
-        error: "Missing required fields: filePath, password",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
+    if (error instanceof InvalidJsonBodyError) {
+      return apiError(400, "Invalid request body");
     }
+    return apiError(400, "Invalid delete payload");
+  }
 
-    // Validate password
-    if (!validatePassword(payload.password)) {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid password",
-        status: 401,
-      };
-      return NextResponse.json(response, { status: 401 });
-    }
+  const normalizedPath = normalizeImagePath(payload.filePath);
+  if (!normalizedPath) {
+    return apiError(400, "Invalid image path");
+  }
 
-    const normalizedPath = normalizeImagePath(payload.filePath);
-    if (!normalizedPath) {
-      const response: APIResponse = {
-        success: false,
-        error: "Invalid image path",
-        status: 400,
-      };
-      return NextResponse.json(response, { status: 400 });
-    }
-    const publicPath = toPublicUploadPath(normalizedPath);
-    const referenceCount = await countUploadReferencesAcrossCMS(publicPath);
+  const publicPath = toPublicUploadPath(normalizedPath);
+  const referenceCount = await countUploadReferencesAcrossCMS(publicPath);
 
-    if (referenceCount === null) {
-      const safeSkipResponse: APIResponse = {
-        success: true,
-        data: {
-          path: publicPath,
-          deleted: false,
-          skipped: true,
-          reason: "Unable to verify references safely",
-        },
-        message: "Image deletion skipped because references could not be verified",
-      };
-      return NextResponse.json(safeSkipResponse);
-    }
+  if (referenceCount === null) {
+    const safeSkipResponse: APIResponse = {
+      data: {
+        deleted: false,
+        path: publicPath,
+        reason: "Unable to verify references safely",
+        skipped: true,
+      },
+      message: "Image deletion skipped because references could not be verified",
+      success: true,
+    };
+    return NextResponse.json(safeSkipResponse);
+  }
 
-    if (referenceCount > 0) {
-      const skippedResponse: APIResponse = {
-        success: true,
-        data: {
-          path: publicPath,
-          deleted: false,
-          skipped: true,
-          references: referenceCount,
-        },
-        message: "Image deletion skipped because path is still referenced",
-      };
-      return NextResponse.json(skippedResponse);
-    }
+  if (referenceCount > 0) {
+    const skippedResponse: APIResponse = {
+      data: {
+        deleted: false,
+        path: publicPath,
+        references: referenceCount,
+        skipped: true,
+      },
+      message: "Image deletion skipped because path is still referenced",
+      success: true,
+    };
+    return NextResponse.json(skippedResponse);
+  }
 
+  try {
     if (process.env.NODE_ENV === "development") {
       const fullPath = join(process.cwd(), normalizedPath);
       try {
@@ -193,60 +190,39 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       }
 
       const successResponse: APIResponse = {
-        success: true,
         data: {
-          path: publicPath,
           deleted: true,
+          path: publicPath,
         },
         message: "Image deleted successfully (local development)",
+        success: true,
       };
 
       return NextResponse.json(successResponse);
     }
 
-    // Initialize GitHub API
     const github = createGitHubAPI();
-
-    // Get file to retrieve SHA
     let fileData;
     try {
       fileData = await github.getFile(normalizedPath);
     } catch {
-      const response: APIResponse = {
-        success: false,
-        error: `File not found: ${normalizedPath}`,
-        status: 404,
-      };
-      return NextResponse.json(response, { status: 404 });
+      return apiError(404, "File not found");
     }
 
-    // Delete file
-    await github.deleteFile(
-      normalizedPath,
-      fileData.sha,
-      `Delete image: ${normalizedPath}`
-    );
+    await github.deleteFile(normalizedPath, fileData.sha, `Delete image: ${normalizedPath}`);
 
     const successResponse: APIResponse = {
-      success: true,
       data: {
-        path: publicPath,
         deleted: true,
+        path: publicPath,
       },
       message: "Image deleted successfully",
+      success: true,
     };
 
     return NextResponse.json(successResponse);
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal server error";
-
-    const response: APIResponse = {
-      success: false,
-      error: errorMessage,
-      status: 500,
-    };
-
-    return NextResponse.json(response, { status: 500 });
+    console.error("[delete-image] failed", error);
+    return apiError(500, "Failed to delete image");
   }
 }

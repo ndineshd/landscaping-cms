@@ -143,7 +143,6 @@ export default function AdminDashboard() {
   // When user authenticates, auto-select and load the default site configuration
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (!password) return;
     // Only auto-load on first authenticated render when nothing is selected yet.
     if (selectedFile) return;
 
@@ -151,15 +150,37 @@ export default function AdminDashboard() {
 
     // Set selection input and load automatically
     setSelectFileInput(defaultFile);
-    void loadData(defaultFile, password);
-  }, [isAuthenticated, loadData, password, selectedFile]);
+    void loadData(defaultFile);
+  }, [isAuthenticated, loadData, selectedFile]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const restoreSession = async () => {
+      try {
+        const response = await fetch("/api/admin/session", {
+          cache: "no-store",
+        });
+        if (!response.ok || !isMounted) return;
+        setIsAuthenticated(true);
+        setLoginError("");
+      } catch {
+        // Ignore startup auth check errors and keep unauthenticated state.
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSelectFile = (filePath: string) => {
     setSelectFileInput(filePath);
     setIsMobileSidebarOpen(false);
-    // If authenticated and password provided, load immediately
-    if (isAuthenticated && password) {
-      loadData(filePath, password);
+    // If authenticated, load immediately
+    if (isAuthenticated) {
+      loadData(filePath);
     }
   };
 
@@ -174,20 +195,60 @@ export default function AdminDashboard() {
       setPassword(trimmedPassword);
     }
 
-    const defaultFile = CMS_FILES.ADMIN_CONFIG;
-    setSelectFileInput(defaultFile);
-    const isAuthenticatedUser = await loadData(defaultFile, trimmedPassword, true);
-    setIsAuthenticated(isAuthenticatedUser);
-    if (isAuthenticatedUser) {
+    try {
+      const response = await fetch("/api/admin/login", {
+        body: JSON.stringify({ password: trimmedPassword }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const data = (await response.json()) as {
+        error?: string;
+        success?: boolean;
+      };
+
+      if (!response.ok || !data?.success) {
+        setIsAuthenticated(false);
+        setLoginError(data.error || "Invalid password. Please try again.");
+        setSelectFileInput("");
+        return;
+      }
+
+      setIsAuthenticated(true);
       setLoginError("");
-    }
-    if (!isAuthenticatedUser) {
-      setLoginError("Invalid password. Please try again.");
-      setSelectFileInput("");
+      setPassword("");
+      const defaultFile = CMS_FILES.ADMIN_CONFIG;
+      setSelectFileInput(defaultFile);
+      await loadData(defaultFile, true);
+    } catch {
+      setIsAuthenticated(false);
+      setLoginError("Unable to sign in right now. Please try again.");
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const sessionResponse = await fetch("/api/admin/session", {
+        cache: "no-store",
+      });
+      if (sessionResponse.ok) {
+        const sessionData = (await sessionResponse.json()) as {
+          data?: { csrfToken?: string };
+        };
+        const csrfToken = sessionData.data?.csrfToken;
+        if (csrfToken) {
+          await fetch("/api/admin/logout", {
+            headers: {
+              "x-csrf-token": csrfToken,
+            },
+            method: "POST",
+          });
+        }
+      }
+    } catch {
+      // Ignore logout API errors and clear client state regardless.
+    }
     setIsAuthenticated(false);
     setPassword("");
     setLoginError("");
@@ -197,12 +258,12 @@ export default function AdminDashboard() {
 
   const handleLoad = () => {
     if (!selectFileInput) return;
-    loadData(selectFileInput, password);
+    loadData(selectFileInput);
   };
 
   const handleReload = () => {
     if (!selectedFile) return;
-    loadData(selectedFile, password, true);
+    loadData(selectedFile, true);
   };
 
   const handleSave = () => {
@@ -211,7 +272,7 @@ export default function AdminDashboard() {
   };
 
   const handleSaveAll = async () => {
-    const result = await saveAllData(password);
+    const result = await saveAllData();
     if (!result || result.successCount === 0) return;
 
     setPublishSummary(result);
@@ -234,7 +295,7 @@ export default function AdminDashboard() {
       if (didReset) return;
     }
 
-    await loadData(selectedFile, password, true);
+    await loadData(selectedFile, true);
   };
 
   const handleResetAll = async () => {
@@ -257,25 +318,25 @@ export default function AdminDashboard() {
     const previousSelection = selectedFile;
     let lastLoadedPath: string | null = null;
     for (const filePath of orderedFilePaths) {
-      await loadData(filePath, password, true);
+      await loadData(filePath, true);
       lastLoadedPath = filePath;
     }
 
     if (previousSelection && lastLoadedPath && previousSelection !== lastLoadedPath) {
-      await loadData(previousSelection, password);
+      await loadData(previousSelection);
     }
   };
 
   const handleDeleteItem = (localItemId: string) => {
     if (window.confirm("Delete item?")) {
-      deleteItem(localItemId, password);
+      deleteItem(localItemId);
     }
   };
 
   const handleImageUpload =
     (localItemId: string, fieldPath: (string | number)[], currentValue?: string) =>
     (file: File) => {
-      uploadImage(localItemId, fieldPath, file, password, currentValue);
+      uploadImage(localItemId, fieldPath, file, currentValue);
     };
 
   const handleImageRemove = (
@@ -283,7 +344,7 @@ export default function AdminDashboard() {
     fieldPath: (string | number)[],
     currentValue?: string
   ) => {
-    removeImage(localItemId, fieldPath, password, currentValue);
+    removeImage(localItemId, fieldPath, currentValue);
   };
 
   const handleAddLanguage = () => {
@@ -304,15 +365,13 @@ export default function AdminDashboard() {
       updateLanguageConfig(
         nextLanguages,
         nextActiveCodes,
-        defaultLanguageCode,
-        password
+        defaultLanguageCode
       );
     } else {
       updateLanguageConfig(
         [...languageOptions, { code, name: name || code.toUpperCase() }],
         [...availableLanguageCodes, code],
-        defaultLanguageCode,
-        password
+        defaultLanguageCode
       );
     }
 
@@ -336,8 +395,7 @@ export default function AdminDashboard() {
     updateLanguageConfig(
       nextLanguages,
       availableLanguageCodes,
-      defaultLanguageCode,
-      password
+      defaultLanguageCode
     );
   };
 
@@ -348,8 +406,7 @@ export default function AdminDashboard() {
     updateLanguageConfig(
       languageOptions,
       nextActiveCodes,
-      defaultLanguageCode,
-      password
+      defaultLanguageCode
     );
   };
 
@@ -357,8 +414,7 @@ export default function AdminDashboard() {
     updateLanguageConfig(
       languageOptions,
       availableLanguageCodes,
-      languageCode,
-      password
+      languageCode
     );
   };
 
@@ -371,7 +427,7 @@ export default function AdminDashboard() {
         ? nextActiveCodes[0] || nextLanguages[0]?.code || defaultLanguageCode
         : defaultLanguageCode;
 
-    updateLanguageConfig(nextLanguages, nextActiveCodes, nextDefault, password);
+    updateLanguageConfig(nextLanguages, nextActiveCodes, nextDefault);
   };
 
   /**
@@ -512,7 +568,6 @@ export default function AdminDashboard() {
                   <AdminItemEditorList
                     items={items}
                     fields={fields}
-                    password={password}
                     isLoading={isLoading}
                     canAddTopLevelItems={canAddTopLevelItems}
                     isSiteConfigFile={isSiteConfigFile}

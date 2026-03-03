@@ -10,161 +10,46 @@ import type { SiteConfig } from "@/types/config";
 
 const SITE_LANGUAGE_HEADER = "x-site-lang";
 const LANGUAGE_COOKIE_NAME = "language";
-const LANGUAGE_STATE_CACHE_TTL_MS = 30_000;
-const GITHUB_CONTENTS_BASE_URL = "https://api.github.com/repos";
-const ADMIN_CONFIG_PATH_CANDIDATES = [
-  "src/data/content/admin.config.json",
-  "data/content/admin.config.json",
-] as const;
-
-interface GitHubFileResponse {
-  content?: string;
-}
-
-interface CachedLanguageRoutingState {
-  expiresAt: number;
-  knownLanguageCodes: string[];
-  siteLanguageState: SiteLanguageState;
-}
-
-let cachedLanguageRoutingState: CachedLanguageRoutingState | null = null;
 
 function createFallbackSiteConfig(): SiteConfig {
+  const configuredCodes = (process.env.SITE_LANGUAGE_CODES || "")
+    .split(",")
+    .map((value) => normalizeLanguageCode(value))
+    .filter(Boolean);
+  const languageCodes = Array.from(new Set(["en", ...configuredCodes]));
+  const configuredDefaultLanguage = normalizeLanguageCode(
+    process.env.SITE_DEFAULT_LANGUAGE || "en"
+  );
+  const defaultLanguage = languageCodes.includes(configuredDefaultLanguage)
+    ? configuredDefaultLanguage
+    : languageCodes[0];
+
   return {
-    name: "Site",
+    availableLanguages: languageCodes,
     companyName: "Site",
-    tagline: "",
+    defaultLanguage,
     description: "",
+    languages: languageCodes.map((code) => ({
+      code,
+      name: code === "en" ? "English" : code.toUpperCase(),
+    })),
     logo: {
-      type: "text",
       text: "",
+      type: "text",
     },
-    defaultLanguage: "en",
-    languages: [{ name: "English", code: "en" }],
-    availableLanguages: ["en"],
+    name: "Site",
+    tagline: "",
   };
 }
 
-function decodeGitHubBase64(content: string): string {
-  const normalized = content.replace(/\n/g, "");
-  const binary = atob(normalized);
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder().decode(bytes);
-}
-
-function buildKnownLanguageCodes(
-  siteConfig: SiteConfig,
-  siteLanguageState: SiteLanguageState
-): string[] {
+function buildKnownLanguageCodes(siteLanguageState: SiteLanguageState): string[] {
   return Array.from(
     new Set(
-      [
-        "en",
-        ...siteLanguageState.languageCodes,
-        siteConfig.defaultLanguage,
-        ...(Array.isArray(siteConfig.availableLanguages)
-          ? siteConfig.availableLanguages
-          : []),
-        ...(Array.isArray(siteConfig.languages)
-          ? siteConfig.languages.map((language) => language?.code)
-          : []),
-      ]
-        .filter((code): code is string => typeof code === "string")
+      ["en", ...siteLanguageState.languageCodes]
         .map((code) => normalizeLanguageCode(code))
         .filter(Boolean)
     )
   );
-}
-
-async function loadSiteConfigFromGitHub(): Promise<SiteConfig | null> {
-  const token = process.env.GITHUB_TOKEN;
-  const owner = process.env.GITHUB_OWNER;
-  const repo = process.env.GITHUB_REPO;
-  const branch = process.env.GITHUB_BRANCH || "main";
-
-  if (!token || !owner || !repo) {
-    return null;
-  }
-
-  for (const adminConfigPath of ADMIN_CONFIG_PATH_CANDIDATES) {
-    const apiUrl =
-      `${GITHUB_CONTENTS_BASE_URL}/${owner}/${repo}/contents/` +
-      `${adminConfigPath}?ref=${encodeURIComponent(branch)}`;
-    const response = await fetch(apiUrl, {
-      headers: {
-        Accept: "application/vnd.github.v3+json",
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        continue;
-      }
-      return null;
-    }
-
-    const data = (await response.json()) as GitHubFileResponse;
-    if (!data.content) {
-      continue;
-    }
-
-    const decoded = decodeGitHubBase64(data.content);
-    const parsed = JSON.parse(decoded) as { site?: unknown };
-
-    if (!parsed.site || typeof parsed.site !== "object") {
-      continue;
-    }
-
-    return parsed.site as SiteConfig;
-  }
-
-  return null;
-}
-
-async function getLanguageRoutingState(): Promise<{
-  knownLanguageCodes: string[];
-  siteLanguageState: SiteLanguageState;
-}> {
-  if (
-    cachedLanguageRoutingState &&
-    cachedLanguageRoutingState.expiresAt > Date.now()
-  ) {
-    return {
-      knownLanguageCodes: cachedLanguageRoutingState.knownLanguageCodes,
-      siteLanguageState: cachedLanguageRoutingState.siteLanguageState,
-    };
-  }
-
-  const fallbackConfig = createFallbackSiteConfig();
-  let resolvedSiteConfig: SiteConfig = fallbackConfig;
-
-  try {
-    const remoteConfig = await loadSiteConfigFromGitHub();
-    if (remoteConfig) {
-      resolvedSiteConfig = remoteConfig;
-    }
-  } catch (error) {
-    console.warn("Failed to load site language config in middleware:", error);
-  }
-
-  const siteLanguageState = resolveSiteLanguage(resolvedSiteConfig);
-  const knownLanguageCodes = buildKnownLanguageCodes(
-    resolvedSiteConfig,
-    siteLanguageState
-  );
-
-  cachedLanguageRoutingState = {
-    expiresAt: Date.now() + LANGUAGE_STATE_CACHE_TTL_MS,
-    knownLanguageCodes,
-    siteLanguageState,
-  };
-
-  return {
-    knownLanguageCodes,
-    siteLanguageState,
-  };
 }
 
 function isPathWithLanguagePrefix(
@@ -184,8 +69,22 @@ function isPathWithLanguagePrefix(
   return languageCodeSet.has(normalizedSegment) ? normalizedSegment : null;
 }
 
+function getLanguageRoutingState(): {
+  knownLanguageCodes: string[];
+  siteLanguageState: SiteLanguageState;
+} {
+  const fallbackConfig = createFallbackSiteConfig();
+  const siteLanguageState = resolveSiteLanguage(fallbackConfig);
+  const knownLanguageCodes = buildKnownLanguageCodes(siteLanguageState);
+
+  return {
+    knownLanguageCodes,
+    siteLanguageState,
+  };
+}
+
 export async function middleware(request: NextRequest) {
-  const { knownLanguageCodes, siteLanguageState } = await getLanguageRoutingState();
+  const { knownLanguageCodes, siteLanguageState } = getLanguageRoutingState();
   const { pathname } = request.nextUrl;
   const isPrefetchRequest =
     request.headers.get("next-router-prefetch") === "1" ||

@@ -51,6 +51,7 @@ import {
   detectFields,
   ensureLocalizedAdminConfigItem,
   ensureTranslationsForLanguages,
+  fetchAdminCsrfToken,
   fetchCMSFile,
   findManagedUploadPathByHash,
   hasAutoIdSource,
@@ -245,17 +246,15 @@ export function useAdminCMS() {
   /**
    * Load JSON data from GitHub
    * @param filePath - File path to load
-   * @param password - Admin password
    * @param forceRemote - Skip local draft and fetch latest remote data
    */
   const loadData = useCallback(
     async (
       filePath: string,
-      password: string,
       forceRemote = false
     ): Promise<boolean> => {
-      if (!filePath || !password) {
-        toast.error("Please select a file and enter password");
+      if (!filePath) {
+        toast.error("Please select a file");
         return false;
       }
 
@@ -280,7 +279,7 @@ export function useAdminCMS() {
 
       setIsLoading(true);
       try {
-        const data = await fetchCMSFile(filePath, password);
+        const data = await fetchCMSFile(filePath);
 
         if (!data.success) {
           const fallbackItems = itemsByFile[filePath] || resetSnapshotsByFile[filePath];
@@ -321,10 +320,7 @@ export function useAdminCMS() {
           let adminRaw: Record<string, unknown> | null = cachedAdminRaw || null;
 
           if (!adminRaw) {
-            const adminConfigData = await fetchCMSFile(
-              CMS_FILES.ADMIN_CONFIG,
-              password
-            );
+            const adminConfigData = await fetchCMSFile(CMS_FILES.ADMIN_CONFIG);
             if (adminConfigData.success) {
               adminRaw = (adminConfigData.data as Record<string, unknown>)
                 .content as Record<string, unknown>;
@@ -529,15 +525,9 @@ export function useAdminCMS() {
 
   /**
    * Publish staged file drafts to GitHub
-   * @param password - Admin password
    */
   const saveAllData = useCallback(
-    async (password: string): Promise<SaveAllResult | null> => {
-      if (!password) {
-        toast.error("Please enter password");
-        return null;
-      }
-
+    async (): Promise<SaveAllResult | null> => {
       const stagedFilePaths = Object.entries(stagedFiles)
         .filter(([, isStaged]) => isStaged)
         .map(([filePath]) => filePath);
@@ -600,7 +590,7 @@ export function useAdminCMS() {
               continue;
             }
 
-            const remoteData = await fetchCMSFile(cmsFilePath, password);
+            const remoteData = await fetchCMSFile(cmsFilePath);
             if (!remoteData.success) {
               canSafelyDeleteMedia = false;
               break;
@@ -643,7 +633,6 @@ export function useAdminCMS() {
             })
           ),
           mediaDeletes: Array.from(mediaDeleteSet),
-          password,
         };
         const serializedPayload = JSON.stringify(payload);
         const payloadSizeBytes = new Blob([serializedPayload]).size;
@@ -653,9 +642,13 @@ export function useAdminCMS() {
           );
         }
 
+        const csrfToken = await fetchAdminCsrfToken();
         const response = await fetch("/api/update-json-batch", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-csrf-token": csrfToken,
+          },
           body: serializedPayload,
         });
         const responseText = await response.text();
@@ -888,10 +881,9 @@ export function useAdminCMS() {
   /**
    * Delete item
    * @param localItemId - Stable local item key
-   * @param password - Admin password
    */
   const deleteItem = useCallback(
-    async (localItemId: string, _password: string) => {
+    async (localItemId: string) => {
       if (!selectedFile) return;
 
       const item = items.find((i: DataItem) => i[LOCAL_ITEM_ID_KEY] === localItemId);
@@ -923,14 +915,12 @@ export function useAdminCMS() {
    * @param localItemId - Stable local item key
    * @param fieldPath - Field path to store uploaded image URL
    * @param file - Image file
-   * @param password - Admin password
    */
   const uploadImage = useCallback(
     async (
       localItemId: string,
       fieldPath: (string | number)[],
       file: File,
-      _password: string,
       previousImagePath?: string
     ) => {
       if (!selectedFile) {
@@ -962,9 +952,9 @@ export function useAdminCMS() {
           setMediaUploadState(sourceFilePath, localItemId, fieldPath, {
             status: "error",
             progress: 0,
-            message: "Video must be 50MB or less.",
+            message: "Video must be 20MB or less.",
           });
-          toast.error("Video size must be 50MB or less");
+          toast.error("Video size must be 20MB or less");
           return;
         }
 
@@ -1079,7 +1069,6 @@ export function useAdminCMS() {
     async (
       localItemId: string,
       fieldPath: (string | number)[],
-      _password: string,
       currentImagePath?: string
     ) => {
       if (!selectedFile) return;
@@ -1204,8 +1193,7 @@ export function useAdminCMS() {
     async (
       languages: LanguageOption[],
       activeLanguageSelections: string[],
-      defaultLanguage: string,
-      adminPassword = ""
+      defaultLanguage: string
     ) => {
       const adminFileItems =
         itemsByFile[CMS_FILES.ADMIN_CONFIG] ||
@@ -1266,7 +1254,7 @@ export function useAdminCMS() {
             return cachedItems;
           }
 
-          const data = await fetchCMSFile(filePath, adminPassword);
+          const data = await fetchCMSFile(filePath);
           if (!data.success) {
             throw new Error(data.error || `Failed to load ${filePath}`);
           }
@@ -1336,10 +1324,7 @@ export function useAdminCMS() {
         const translatedLanguageCodes: string[] = [];
         let totalTranslationFailures = 0;
 
-        if (
-          newlyAddedLanguageCodes.length > 0 &&
-          adminPassword.trim().length > 0
-        ) {
+        if (newlyAddedLanguageCodes.length > 0) {
           for (const targetLanguageCode of newlyAddedLanguageCodes) {
             if (targetLanguageCode === normalizedLanguageConfig.defaultLanguage) {
               continue;
@@ -1361,8 +1346,7 @@ export function useAdminCMS() {
                   fileItems,
                   normalizedLanguageConfig.languageCodes,
                   sourceLanguageCode,
-                  targetLanguageCode,
-                  adminPassword
+                  targetLanguageCode
                 );
                 totalTranslationFailures += translated.failedCount;
 
@@ -1380,8 +1364,7 @@ export function useAdminCMS() {
                   const translatedLanguageSection = await autoTranslateRecordStrings(
                     languageValue,
                     sourceLanguageCode,
-                    targetLanguageCode,
-                    adminPassword
+                    targetLanguageCode
                   );
                   totalTranslationFailures +=
                     translatedLanguageSection.failedCount;
@@ -1411,13 +1394,6 @@ export function useAdminCMS() {
               );
             }
           }
-        } else if (
-          newlyAddedLanguageCodes.length > 0 &&
-          adminPassword.trim().length === 0
-        ) {
-          toast.warning(
-            "New language was added, but automatic translation was skipped (missing admin password)."
-          );
         }
 
         setItemsByFile(nextItemsByFile);

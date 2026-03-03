@@ -25,7 +25,6 @@ interface SiteConfigSection {
 interface AdminItemEditorListProps {
   items: DataItem[];
   fields: DynamicField[];
-  password: string;
   isLoading: boolean;
   canAddTopLevelItems: boolean;
   isSiteConfigFile: boolean;
@@ -71,7 +70,6 @@ function resolveLocalItemId(item: DataItem): string {
 export function AdminItemEditorList({
   items,
   fields,
-  password,
   isLoading,
   canAddTopLevelItems,
   isSiteConfigFile,
@@ -114,7 +112,6 @@ export function AdminItemEditorList({
             <ItemEditorComponent
               item={siteConfigItem}
               fields={fields}
-              password={password}
               disabled={isLoading}
               autoIdFromContent={false}
               activeLanguageCode={activeLanguageCode}
@@ -159,7 +156,6 @@ export function AdminItemEditorList({
             <ItemEditorComponent
               item={item}
               fields={fields}
-              password={password}
               disabled={isLoading}
               autoIdFromContent={isAutoIdFile}
               activeLanguageCode={activeLanguageCode}
